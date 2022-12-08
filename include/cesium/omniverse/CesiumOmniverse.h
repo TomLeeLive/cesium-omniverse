@@ -95,6 +95,51 @@ class ICesiumOmniverseInterface {
      * @param height The height in meters
      */
     virtual void setGeoreferenceOrigin(double longitude, double latitude, double height) noexcept = 0;
+
+    /**
+     * @brief Adds a cube to Fabric using the USDRT API.
+     *
+     * @param stageId The USD stage id
+     */
+    virtual void addCubeUsdrt(long stageId) noexcept = 0;
+
+    /**
+     * @brief Adds a cube to the USD stage.
+     *
+     * @param stageId The USD stage id
+     */
+    virtual void addCubeUsd(long stageId) noexcept = 0;
+
+    /**
+     * @brief Adds a cube to Fabric directly.
+     *
+     * @param stageId The USD stage id
+     */
+    virtual void addCubeFabric(long stageId) noexcept = 0;
+
+    /**
+     * @brief Remove the USDRT cube.
+     *
+     * @param stageId The USD stage id
+     */
+    virtual void removeCubeUsdrt(long stageId) noexcept = 0;
+
+    /**
+     * @brief Print the USDRT stage.
+     *
+     * @param stageId The USD stage id
+     * @returns A string representation of the USDRT stage.
+     */
+    virtual std::string printUsdrtStage(long stageId) noexcept = 0;
+
+        /**
+     * @brief Print the Fabric stage.
+     *
+     * @param stageId The USD stage id
+     * @returns A string representation of the Fabric stage.
+     */
+    virtual std::string printFabricStage(long stageId) noexcept = 0;
+
 };
 
 } // namespace cesium::omniverse

@@ -31,6 +31,7 @@ class CesiumOmniverseDebugWindow(ui.Window):
     _subscription_handle: ISubscription = None
     _logger: logging.Logger
     _cesium_omniverse_interface: ICesiumOmniverseInterface = None
+    _cesium_message_field: ui.SimpleStringModel = None
 
     def __init__(self, cesium_omniverse_interface: ICesiumOmniverseInterface, title: str, **kwargs):
         super().__init__(title, **kwargs)
@@ -227,12 +228,48 @@ class CesiumOmniverseDebugWindow(ui.Window):
             else:  # Terrain is Cesium World Terrain
                 add_cesium_world_terrain()
 
+        def add_cube_usdrt():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.addCubeUsdrt(stage_id)
+
+        def add_cube_usd():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.addCubeUsd(stage_id)
+
+        def add_cube_fabric():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.addCubeFabric(stage_id)
+
+        def remove_cube_usdrt():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.removeCubeUsdrt(stage_id)
+
+        def print_usdrt_stage():
+            stage_id = omni.usd.get_context().get_stage_id()
+            usdrt_stage = self._cesium_omniverse_interface.printUsdrtStage(stage_id)
+            self._cesium_message_field.set_value(usdrt_stage)
+
+        def print_fabric_stage():
+            stage_id = omni.usd.get_context().get_stage_id()
+            usdrt_stage = self._cesium_omniverse_interface.printFabricStage(stage_id)
+            self._cesium_message_field.set_value(usdrt_stage)
+
         with ui.VStack():
-            ui.Button("Update Frame", clicked_fn=lambda: start_update_frame())
-            ui.Button("Stop Update Frame", clicked_fn=lambda: stop_update_frame())
-            ui.Button(
-                "Create Cesium World Terrain Tileset", clicked_fn=lambda: create_tileset(Tileset.CESIUM_WORLD_TERRAIN)
-            )
-            ui.Button("Create Bing Maps Tileset", clicked_fn=lambda: create_tileset(Tileset.BING_MAPS))
-            ui.Button("Create Bing Maps Tileset using Stage Token", clicked_fn=lambda: create_tileset(Tileset.BING_MAPS_WITH_STAGE_TOKEN))
-            ui.Button("Create Cape Canaveral Tileset", clicked_fn=lambda: create_tileset(Tileset.CAPE_CANAVERAL))
+            with ui.VStack():
+                ui.Button("Update Frame", clicked_fn=lambda: start_update_frame())
+                ui.Button("Stop Update Frame", clicked_fn=lambda: stop_update_frame())
+                ui.Button(
+                    "Create Cesium World Terrain Tileset",
+                    clicked_fn=lambda: create_tileset(Tileset.CESIUM_WORLD_TERRAIN),
+                )
+                ui.Button("Create Bing Maps Tileset", clicked_fn=lambda: create_tileset(Tileset.BING_MAPS))
+                ui.Button("Create Cape Canaveral Tileset", clicked_fn=lambda: create_tileset(Tileset.CAPE_CANAVERAL))
+                ui.Button("Add Cube USDRT", clicked_fn=lambda: add_cube_usdrt())
+                ui.Button("Add Cube USD", clicked_fn=lambda: add_cube_usd())
+                ui.Button("Add Cube Fabric", clicked_fn=lambda: add_cube_fabric())
+                ui.Button("Remove Cube USDRT", clicked_fn=lambda: remove_cube_usdrt())
+                ui.Button("Print USDRT stage", clicked_fn=lambda: print_usdrt_stage())
+                ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
+            with ui.VStack():
+                self._cesium_message_field = ui.SimpleStringModel("")
+                ui.StringField(self._cesium_message_field, multiline=True, read_only=True)

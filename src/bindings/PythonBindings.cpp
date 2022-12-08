@@ -34,5 +34,11 @@ PYBIND11_MODULE(CesiumOmniversePythonBindings, m) {
         .def("removeTileset", &ICesiumOmniverseInterface::removeTileset)
         .def("addIonRasterOverlay", &ICesiumOmniverseInterface::addIonRasterOverlay)
         .def("updateFrame", &ICesiumOmniverseInterface::updateFrame)
-        .def("setGeoreferenceOrigin", &ICesiumOmniverseInterface::setGeoreferenceOrigin);
+        .def("setGeoreferenceOrigin", &ICesiumOmniverseInterface::setGeoreferenceOrigin)
+        .def("addCubeUsdrt", &ICesiumOmniverseInterface::addCubeUsdrt)
+        .def("addCubeUsd", &ICesiumOmniverseInterface::addCubeUsd)
+        .def("addCubeFabric", &ICesiumOmniverseInterface::addCubeFabric)
+        .def("removeCubeUsdrt", &ICesiumOmniverseInterface::removeCubeUsdrt)
+        .def("printUsdrtStage", &ICesiumOmniverseInterface::printUsdrtStage)
+        .def("printFabricStage", &ICesiumOmniverseInterface::printFabricStage);
 }
