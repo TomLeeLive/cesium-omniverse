@@ -3,18 +3,18 @@
     <package name="python" version="3.7.13+nv1-${platform}"/>
   </dependency>
   <dependency name="nv_usd_py37_release" linkPath="../_build/target-deps/usd/release">
-    <package name="nv-usd" version="20.08.nv.1.2.2496.ecf7aef9-win64_py37_release-main" platforms="windows-x86_64"/>
-    <package name="nv-usd" version="20.08.nv.1.2.2496.ecf7aef9-linux64_py37-centos_release-main" platforms="linux-x86_64"/>
+    <package name="nv-usd" version="20.08.nv.1.2.2568.0bec9a14-win64_py37_release-main" platforms="windows-x86_64"/>
+    <package name="nv-usd" version="20.08.nv.1.2.2568.0bec9a14-linux64_py37-centos_release-main" platforms="linux-x86_64"/>
   </dependency>
   <dependency name="nv_usd_py37_debug" linkPath="../_build/target-deps/usd/debug">
-    <package name="nv-usd" version="20.08.nv.1.2.2496.ecf7aef9-win64_py37_debug-main" platforms="windows-x86_64"/>
-    <package name="nv-usd" version="20.08.nv.1.2.2496.ecf7aef9-linux64_py37-centos_debug-main" platforms="linux-x86_64"/>
+    <package name="nv-usd" version="20.08.nv.1.2.2568.0bec9a14-win64_py37_debug-main" platforms="windows-x86_64"/>
+    <package name="nv-usd" version="20.08.nv.1.2.2568.0bec9a14-linux64_py37-centos_debug-main" platforms="linux-x86_64"/>
   </dependency>
   <dependency name="usdrt" linkPath="../_build/target-deps/usdrt">
-    <package name="usdrt" version="4.0.6+support_104_deploy.816.93ec0708.tc.${platform}" />
+    <package name="usdrt" version="4.1.2+support_104_deploy.1133.56d27dce.tc.${platform}" />
   </dependency>
   <dependency name="carb_sdk_plugins" linkPath="../_build/target-deps/carb_sdk_plugins">
-    <package name="carb_sdk+plugins.${platform}" version="129.1+release129.tc6901.7e9b5eab" />
+    <package name="carb_sdk+plugins.${platform}" version="129.7+129.tc225.e66972f6" />
   </dependency>
   <dependency name="pybind11" linkPath="../_build/target-deps/pybind11/pybind11">
     <package name="pybind11" version="2.3.dev1-349dd2e6" />
