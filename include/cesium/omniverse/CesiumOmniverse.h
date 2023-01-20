@@ -15,6 +15,8 @@ class ICesiumOmniverseInterface {
   public:
     CARB_PLUGIN_INTERFACE("cesium::omniverse::ICesiumOmniverseInterface", 0, 0);
 
+    enum UpAxis { Y_UP, Z_UP };
+
     /**
      * @brief Call this before any tilesets are created.
      *
@@ -25,7 +27,7 @@ class ICesiumOmniverseInterface {
     /**
      * @brief Call this to free resources on program exist.
      */
-    virtual void finalize() noexcept = 0;
+    virtual void destroy() noexcept = 0;
 
     /**
      * @brief Adds a Cesium Data prim.
@@ -97,6 +99,14 @@ class ICesiumOmniverseInterface {
     virtual void setGeoreferenceOrigin(double longitude, double latitude, double height) noexcept = 0;
 
     /**
+     * @brief Sets the coordinate system of the USD stage.
+     *
+     * @param upAxis The up axis
+     * @param metersPerUnit The meters per unit
+     */
+    virtual void setCoordinateSystem(UpAxis upAxis, double metersPerUnit) noexcept = 0;
+
+    /**
      * @brief Adds a cube to Fabric using the USDRT API.
      *
      * @param stageId The USD stage id
@@ -132,14 +142,13 @@ class ICesiumOmniverseInterface {
      */
     virtual std::string printUsdrtStage(long stageId) noexcept = 0;
 
-        /**
+    /**
      * @brief Print the Fabric stage.
      *
      * @param stageId The USD stage id
      * @returns A string representation of the Fabric stage.
      */
     virtual std::string printFabricStage(long stageId) noexcept = 0;
-
 };
 
 } // namespace cesium::omniverse

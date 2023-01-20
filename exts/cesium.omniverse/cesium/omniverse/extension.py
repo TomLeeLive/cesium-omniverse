@@ -25,10 +25,10 @@ def get_cesium_omniverse_interface() -> ICesiumOmniverseInterface:
 
 
 class CesiumOmniverseExtension(omni.ext.IExt):
-
     @staticmethod
-    async def _dock_window_async(window: Optional[ui.Window], target: str = "Stage",
-                                 position: ui.DockPosition = ui.DockPosition.SAME):
+    async def _dock_window_async(
+        window: Optional[ui.Window], target: str = "Stage", position: ui.DockPosition = ui.DockPosition.SAME
+    ):
         if window is None:
             return
 
@@ -101,7 +101,7 @@ class CesiumOmniverseExtension(omni.ext.IExt):
 
         # Release the Cesium Omniverse interface.
         global _cesium_omniverse_interface
-        _cesium_omniverse_interface.finalize()
+        _cesium_omniverse_interface.destroy()
         release_cesium_omniverse_interface(_cesium_omniverse_interface)
         _cesium_omniverse_interface = None
 
@@ -137,22 +137,20 @@ class CesiumOmniverseExtension(omni.ext.IExt):
 
     def show_main_window(self, _menu, value):
         if value:
-            self._main_window = CesiumOmniverseMainWindow(
-                _cesium_omniverse_interface, width=300, height=400
-            )
+            self._main_window = CesiumOmniverseMainWindow(_cesium_omniverse_interface, width=300, height=400)
             self._main_window.set_visibility_changed_fn(
-                partial(self._visibility_changed_fn, CesiumOmniverseMainWindow.MENU_PATH))
+                partial(self._visibility_changed_fn, CesiumOmniverseMainWindow.MENU_PATH)
+            )
             asyncio.ensure_future(self._dock_window_async(self._main_window))
         elif self._main_window is not None:
             self._main_window.visible = False
 
     def show_assets_window(self, _menu, value):
         if value:
-            self._asset_window = CesiumOmniverseAssetWindow(
-                _cesium_omniverse_interface, width=700, height=300
-            )
+            self._asset_window = CesiumOmniverseAssetWindow(_cesium_omniverse_interface, width=700, height=300)
             self._asset_window.set_visibility_changed_fn(
-                partial(self._visibility_changed_fn, CesiumOmniverseAssetWindow.MENU_PATH))
+                partial(self._visibility_changed_fn, CesiumOmniverseAssetWindow.MENU_PATH)
+            )
             asyncio.ensure_future(self._dock_window_async(self._asset_window, "Content"))
         elif self._asset_window is not None:
             self._asset_window.visible = False
@@ -163,7 +161,8 @@ class CesiumOmniverseExtension(omni.ext.IExt):
                 _cesium_omniverse_interface, CesiumOmniverseDebugWindow.WINDOW_NAME, width=300, height=365
             )
             self._debug_window.set_visibility_changed_fn(
-                partial(self._visibility_changed_fn, CesiumOmniverseDebugWindow.MENU_PATH))
+                partial(self._visibility_changed_fn, CesiumOmniverseDebugWindow.MENU_PATH)
+            )
             asyncio.ensure_future(self._dock_window_async(self._debug_window))
         elif self._debug_window is not None:
             self._debug_window.visible = False

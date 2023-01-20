@@ -1,13 +1,28 @@
 #include "cesium/omniverse/LoggerSink.h"
 
-#include <pxr/base/tf/callContext.h>
-#include <pxr/base/tf/diagnostic.h>
-
-using namespace pxr;
-
 namespace cesium::omniverse {
 void LoggerSink::sink_it_([[maybe_unused]] const spdlog::details::log_msg& msg) {
-    TF_STATUS(formatMessage(msg));
+    // The reason we don't need to provide a log channel as the first argument to each of these OMNI_LOG_ functions is
+    // because CARB_PLUGIN_IMPL calls CARB_GLOBALS_EX which calls OMNI_GLOBALS_ADD_DEFAULT_CHANNEL and sets the channel
+    // name to our plugin name: cesium.omniverse.plugin
+
+    switch (_logLevel) {
+        case omni::log::Level::eVerbose: {
+            OMNI_LOG_VERBOSE("%s", formatMessage(msg));
+        }
+        case omni::log::Level::eInfo: {
+            OMNI_LOG_INFO("%s", formatMessage(msg));
+        }
+        case omni::log::Level::eWarn: {
+            OMNI_LOG_WARN("%s", formatMessage(msg));
+        }
+        case omni::log::Level::eError: {
+            OMNI_LOG_ERROR("%s", formatMessage(msg));
+        }
+        case omni::log::Level::eFatal: {
+            OMNI_LOG_FATAL("%s", formatMessage(msg));
+        }
+    }
 }
 
 void LoggerSink::flush_() {}

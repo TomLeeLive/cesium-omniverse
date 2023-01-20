@@ -60,24 +60,24 @@ RenderResourcesPreparer::RenderResourcesPreparer(const pxr::UsdStageRefPtr& stag
     tilesetTransform.Set(currentTransform);
 }
 
-void RenderResourcesPreparer::setTransform(const glm::dmat4& absToRelWorld) {
+void RenderResourcesPreparer::setTransform(const glm::dmat4& globalToLocal) {
     pxr::GfMatrix4d currentTransform{
-        absToRelWorld[0][0],
-        absToRelWorld[0][1],
-        absToRelWorld[0][2],
-        absToRelWorld[0][3],
-        absToRelWorld[1][0],
-        absToRelWorld[1][1],
-        absToRelWorld[1][2],
-        absToRelWorld[1][3],
-        absToRelWorld[2][0],
-        absToRelWorld[2][1],
-        absToRelWorld[2][2],
-        absToRelWorld[2][3],
-        absToRelWorld[3][0],
-        absToRelWorld[3][1],
-        absToRelWorld[3][2],
-        absToRelWorld[3][3],
+        globalToLocal[0][0],
+        globalToLocal[0][1],
+        globalToLocal[0][2],
+        globalToLocal[0][3],
+        globalToLocal[1][0],
+        globalToLocal[1][1],
+        globalToLocal[1][2],
+        globalToLocal[1][3],
+        globalToLocal[2][0],
+        globalToLocal[2][1],
+        globalToLocal[2][2],
+        globalToLocal[2][3],
+        globalToLocal[3][0],
+        globalToLocal[3][1],
+        globalToLocal[3][2],
+        globalToLocal[3][3],
     };
     tilesetTransform.Set(currentTransform);
 }

@@ -31,7 +31,7 @@ class RenderResourcesPreparer : public Cesium3DTilesSelection::IPrepareRendererR
   public:
     RenderResourcesPreparer(const pxr::UsdStageRefPtr& stage, const pxr::SdfPath& tilesetPath);
 
-    void setTransform(const glm::dmat4& absToRelWorld);
+    void setTransform(const glm::dmat4& globalToLocal);
 
     void setVisible(void* tileRenderResources, bool enable);
 
