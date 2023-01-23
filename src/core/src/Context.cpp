@@ -52,6 +52,7 @@ void Context::destroy() {
     _httpAssetAccessor.reset();
     _creditSystem.reset();
     _coordinateSystem.reset();
+    _logger.reset();
 
     _tilesetId = 0;
     _tilesets.clear();

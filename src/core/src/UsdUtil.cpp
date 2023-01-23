@@ -285,11 +285,6 @@ std::string printFabricStage(long stageId) {
 
     std::stringstream stream;
 
-    struct AttributeInfo {
-        std::string name;
-        bool isArray;
-    };
-
     // These are the types of prins we want to print
     std::vector<std::string> types = {"Mesh"};
 
@@ -302,7 +297,6 @@ std::string printFabricStage(long stageId) {
 
         for (uint64_t bucketId = 0; bucketId < buckets.bucketCount(); bucketId++) {
             const auto& attributes = sip.getAttributeNamesAndTypes(buckets, bucketId);
-
             const auto& primPaths = sip.getPathArray(buckets, bucketId);
 
             for (const auto& primPath : primPaths) {

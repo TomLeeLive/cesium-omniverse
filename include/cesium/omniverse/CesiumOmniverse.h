@@ -80,6 +80,7 @@ class ICesiumOmniverseInterface {
      * @param height The screen height
      */
     virtual void updateFrame(
+        // TODO: take a double* instead
         const pxr::GfMatrix4d& viewMatrix,
         const pxr::GfMatrix4d& projMatrix,
         double width,

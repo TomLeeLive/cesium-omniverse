@@ -5,11 +5,11 @@
 #include <carb/PluginUtils.h>
 
 #include "CesiumUsdSchemas/data.h"
-
 #include "cesium/omniverse/Context.h"
 #include "cesium/omniverse/UsdUtil.h"
 
 #include <CesiumGeospatial/Cartographic.h>
+#include <carb/PluginUtils.h>
 #include <pxr/base/vt/array.h>
 #include <pxr/usd/sdf/path.h>
 #include <pxr/usd/sdf/types.h>
@@ -83,8 +83,9 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const usdrt::UsdPrim prim = stage->DefinePrim(primPath, usdrt::TfToken("Mesh"));
 
         const usdrt::VtArray<int> faceVertexCounts = {4, 4, 4, 4, 4, 4};
-        const usdrt::VtArray<int> faceVertexIndices = {0, 1, 3, 2, 2, 3, 7, 6, 6, 7, 5, 4,
-                                                       4, 5, 1, 0, 2, 6, 4, 0, 7, 3, 1, 5};
+        const usdrt::VtArray<int> faceVertexIndices = {
+            0, 1, 3, 2, 2, 3, 7, 6, 6, 7, 5, 4, 4, 5, 1, 0, 2, 6, 4, 0, 7, 3, 1, 5,
+        };
 
         const usdrt::VtArray<usdrt::GfVec3f> points = {
             usdrt::GfVec3f(-1.0, -1.0, -1.0),
@@ -98,12 +99,14 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
         usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
 
+        usdrt::GfRange3d range(usdrt::GfVec3d(-1.0, -1.0, -1.0), usdrt::GfVec3d(1.0, 1.0, 1.0));
+
         // clang-format off
         prim.CreateAttribute(usdrt::TfToken("faceVertexCounts"), usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
         prim.CreateAttribute(usdrt::TfToken("faceVertexIndices"), usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexIndices);
         prim.CreateAttribute(usdrt::TfToken("points"), usdrt::SdfValueTypeNames->Point3fArray, false).Set(points);
         prim.CreateAttribute(usdrt::TfToken("primvars:displayColor"), usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
-        prim.CreateAttribute(usdrt::TfToken("_worldExtent"), usdrt::SdfValueTypeNames->Range3d, false).Set(usdrt::GfRange3d(usdrt::GfVec3d(-1.0, -1.0, -1.0), usdrt::GfVec3d(1.0, 1.0, 1.0)));
+        prim.CreateAttribute(usdrt::TfToken("_worldExtent"), usdrt::SdfValueTypeNames->Range3d, false).Set(range);
 
         // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
         // new TokenArray attributes, "primvars", and "primvarInterpolations", which are used internally by Fabric
@@ -236,9 +239,8 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const auto primPath = usdrt::SdfPath("/example_prim_usdrt");
 
         const auto& prim = stage->GetPrimAtPath(primPath);
-        if (prim.IsValid()) {
-            int i = 0;
-            (void)i;
+        if (!prim.IsValid()) {
+            return;
         }
 
         stage->RemovePrim(primPath);

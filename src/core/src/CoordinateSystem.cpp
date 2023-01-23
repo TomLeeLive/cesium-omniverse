@@ -13,6 +13,11 @@
 namespace cesium::omniverse {
 
 namespace {
+glm::dmat4 getEastNorthUpToFixedFrame(const CesiumGeospatial::Cartographic& cartographic) {
+    const auto cartesian = CesiumGeospatial::Ellipsoid::WGS84.cartographicToCartesian(cartographic);
+    return CesiumGeospatial::Transforms::eastNorthUpToFixedFrame(cartesian);
+}
+
 glm::dmat4 getAxisConversionMatrix(long stageId) {
     const auto stage = getUsdStage(stageId);
     const auto upAxis = pxr::UsdGeomGetStageUpAxis(stage);
@@ -29,11 +34,6 @@ glm::dmat4 getUnitConversionMatrix(long stageId) {
     const auto stage = getUsdStage(stageId);
     const auto metersPerUnit = pxr::UsdGeomGetStageMetersPerUnit(stage);
     return glm::scale(glm::dmat4(1.0), glm::dvec3(metersPerUnit));
-}
-
-glm::dmat4 getEastNorthUpToFixedFrame(const CesiumGeospatial::Cartographic& cartographic) {
-    const auto cartesian = CesiumGeospatial::Ellipsoid::WGS84.cartographicToCartesian(cartographic);
-    return CesiumGeospatial::Transforms::eastNorthUpToFixedFrame(cartesian);
 }
 
 } // namespace
