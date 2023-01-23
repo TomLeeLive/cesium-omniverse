@@ -1,4 +1,9 @@
-#include "cesium/omniverse/Debug.h"
+#pragma once
+
+#include "cesium/omniverse/UsdUtil.h"
+
+#include <pxr/usd/usdUtils/stageCache.h>
+#include <spdlog/fmt/fmt.h>
 
 namespace cesium::omniverse {
 
@@ -193,8 +198,66 @@ std::string printUsdrtPrim(const usdrt::UsdPrim& prim, const bool printChildren)
 
 } // namespace
 
-std::string printUsdrtStage(long stageId) noexcept override {
-    const auto& stage = usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
+pxr::UsdStageRefPtr getUsdStage(long stageId) {
+    return pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
+}
+
+usdrt::UsdStageRefPtr getUsdrtStage(long stageId) {
+    return usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
+}
+
+carb::flatcache::StageInProgress getFabricStageInProgress(long stageId) {
+    const auto stage = getUsdrtStage(stageId);
+    const auto stageInProgressId = stage->GetStageInProgressId();
+    return carb::flatcache::StageInProgress(stageInProgressId);
+}
+
+glm::dmat4 gfToGlmMatrix(const pxr::GfMatrix4d& matrix) {
+    // Row-major to column-major
+    return glm::dmat4{
+        matrix[0][0],
+        matrix[1][0],
+        matrix[2][0],
+        matrix[3][0],
+        matrix[0][1],
+        matrix[1][1],
+        matrix[2][1],
+        matrix[3][1],
+        matrix[0][2],
+        matrix[1][2],
+        matrix[2][2],
+        matrix[3][2],
+        matrix[0][3],
+        matrix[1][3],
+        matrix[2][3],
+        matrix[3][3],
+    };
+}
+
+pxr::GfMatrix4d glmToGfMatrix(const glm::dmat4& matrix) {
+    // Column-major to row-major
+    return pxr::GfMatrix4d{
+        matrix[0][0],
+        matrix[1][0],
+        matrix[2][0],
+        matrix[3][0],
+        matrix[0][1],
+        matrix[1][1],
+        matrix[2][1],
+        matrix[3][1],
+        matrix[0][2],
+        matrix[1][2],
+        matrix[2][2],
+        matrix[3][2],
+        matrix[0][3],
+        matrix[1][3],
+        matrix[2][3],
+        matrix[3][3],
+    };
+}
+
+std::string printUsdrtStage(long stageId) {
+    const auto stage = getUsdrtStage(stageId);
 
     // Notes aboute Traverse() and PrimRange from the USDRT docs:
     //
@@ -211,24 +274,23 @@ std::string printUsdrtStage(long stageId) noexcept override {
     // Alternative:
 
     // const auto root = stage->GetPseudoRoot();
-    // return printUsdrtPrim(printUsdrtPrim, root, true);
+    // return printUsdrtPrim(root, true);
 }
 
-std::string printFabricStage(long stageId) noexcept override {
-    std::stringstream stream;
-
-    const auto& stage = usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
-    const auto& stageInProgressId = stage->GetStageInProgressId();
-    auto sip = carb::flatcache::StageInProgress(stageInProgressId);
+std::string printFabricStage(long stageId) {
+    auto sip = getFabricStageInProgress(stageId);
 
     // For extra debugging
     sip.printBucketNames();
+
+    std::stringstream stream;
 
     struct AttributeInfo {
         std::string name;
         bool isArray;
     };
 
+    // These are the types of prins we want to print
     std::vector<std::string> types = {"Mesh"};
 
     for (const auto& primTokenString : types) {
@@ -241,7 +303,7 @@ std::string printFabricStage(long stageId) noexcept override {
         for (uint64_t bucketId = 0; bucketId < buckets.bucketCount(); bucketId++) {
             const auto& attributes = sip.getAttributeNamesAndTypes(buckets, bucketId);
 
-            const auto primPaths = sip.getPathArray(buckets, bucketId);
+            const auto& primPaths = sip.getPathArray(buckets, bucketId);
 
             for (const auto& primPath : primPaths) {
                 const std::string primPathString = primPath.getText();
@@ -267,13 +329,15 @@ std::string printFabricStage(long stageId) noexcept override {
 
                     std::string attributeValue;
 
-                    // Not all cases are handled here; but has good coverage over SdfValueTypeNames which is what
-                    // we expect to see from USDRT prims.
+                    // These switch statements should cover all the attribute types we expect to see used by USDRT
+                    // prims. See SdfValueTypeNames for the full list. Fabric allows for many more attribute types
+                    // but we don't really care at the moment since we're always interfacing with Fabric via USDRT.
                     if (arrayDepth == 0) {
                         switch (baseType) {
                             case carb::flatcache::BaseDataType::eBool: {
                                 switch (componentCount) {
                                     case 1: {
+                                        // TODO: check that bool works
                                         attributeValue = printAttributeValue<false, bool, 1>(sip, primPath, name);
                                         break;
                                     }
@@ -531,4 +595,5 @@ std::string printFabricStage(long stageId) noexcept override {
 
     return stream.str();
 }
+
 } // namespace cesium::omniverse

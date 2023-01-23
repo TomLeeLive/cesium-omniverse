@@ -12,6 +12,7 @@
 #endif
 
 #include <Cesium3DTilesSelection/CreditSystem.h>
+#include <Cesium3DTilesSelection/Tileset.h>
 #include <Cesium3DTilesSelection/ViewState.h>
 #include <Cesium3DTilesSelection/registerAllTileContentTypes.h>
 
@@ -23,30 +24,20 @@ Context& Context::instance() {
 }
 
 void Context::init(const std::filesystem::path& cesiumExtensionLocation) {
-    const auto verboseLoggerSink = std::make_shared<LoggerSink>(omni::log::Level::eVerbose);
-    const auto infoLoggerSink = std::make_shared<LoggerSink>(omni::log::Level::eInfo);
-    const auto warnLoggerSink = std::make_shared<LoggerSink>(omni::log::Level::eWarn);
-    const auto errorLoggerSink = std::make_shared<LoggerSink>(omni::log::Level::eError);
-    const auto fatalLoggerSink = std::make_shared<LoggerSink>(omni::log::Level::eFatal);
-
-    verboseLoggerSink->set_level(spdlog::level::trace);
-    infoLoggerSink->set_level(spdlog::level::info);
-    warnLoggerSink->set_level(spdlog::level::warn);
-    errorLoggerSink->set_level(spdlog::level::err);
-    fatalLoggerSink->set_level(spdlog::level::critical);
-
-    auto logger = spdlog::default_logger();
-    logger->sinks().clear();
-    logger->sinks().push_back(verboseLoggerSink);
-    logger->sinks().push_back(infoLoggerSink);
-    logger->sinks().push_back(warnLoggerSink);
-    logger->sinks().push_back(errorLoggerSink);
-    logger->sinks().push_back(fatalLoggerSink);
-
     _taskProcessor = std::make_shared<TaskProcessor>();
     _httpAssetAccessor = std::make_shared<HttpAssetAccessor>();
     _creditSystem = std::make_shared<Cesium3DTilesSelection::CreditSystem>();
     _coordinateSystem = std::make_shared<CoordinateSystem>();
+
+    _logger = std::make_shared<spdlog::logger>(
+        std::string("cesium-omniverse"),
+        spdlog::sinks_init_list{
+            std::make_shared<LoggerSink>(omni::log::Level::eVerbose),
+            std::make_shared<LoggerSink>(omni::log::Level::eInfo),
+            std::make_shared<LoggerSink>(omni::log::Level::eWarn),
+            std::make_shared<LoggerSink>(omni::log::Level::eError),
+            std::make_shared<LoggerSink>(omni::log::Level::eFatal),
+        });
 
     _tilesetId = 0;
 
@@ -62,8 +53,8 @@ void Context::destroy() {
     _creditSystem.reset();
     _coordinateSystem.reset();
 
+    _tilesetId = 0;
     _tilesets.clear();
-    _viewStates.clear();
 }
 
 std::shared_ptr<TaskProcessor> Context::getTaskProcessor() {
@@ -80,6 +71,36 @@ std::shared_ptr<Cesium3DTilesSelection::CreditSystem> Context::getCreditSystem()
 
 std::shared_ptr<CoordinateSystem> Context::getCoordinateSystem() {
     return _coordinateSystem;
+}
+
+std::shared_ptr<spdlog::logger> Context::getLogger() {
+    return _logger;
+}
+
+int Context::addTilesetUrl(long stageId, const std::string& url) {
+    const auto tilesetId = getTilesetId();
+    const auto tilesetName = fmt::format("tileset_{}", tilesetId);
+    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(tilesetName, stageId, url)});
+    return tilesetId;
+}
+
+int Context::addTilesetIon(long stageId, int64_t ionId, const std::string& ionToken) {
+    const auto tilesetId = getTilesetId();
+    const auto tilesetName = fmt::format("tileset_ion_{}", ionId);
+    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(tilesetName, stageId, ionId, ionToken)});
+    return tilesetId;
+}
+
+void Context::removeTileset(int tileset) {
+    // TODO: actually remove from USD/Fabric
+    _tilesets.erase(tileset);
+}
+
+void Context::addIonRasterOverlay(int tileset, const std::string& name, int64_t ionId, const std::string& ionToken) {
+    const auto iter = _tilesets.find(tileset);
+    if (iter != _tilesets.end()) {
+        iter->second->addIonRasterOverlay(name, ionId, ionToken);
+    }
 }
 
 void Context::updateFrame(const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height) {
@@ -107,8 +128,12 @@ void Context::updateFrame(const glm::dmat4& viewMatrix, const glm::dmat4& projMa
     _viewStates.emplace_back(viewState);
 
     for (const auto& [tilesetId, tileset] : _tilesets) {
-        tileset->updateFrame();
+        tileset->updateFrame(_viewStates);
     }
+}
+
+void Context::setGeoreferenceOrigin(long stageId, const CesiumGeospatial::Cartographic& origin) {
+    _coordinateSystem->setGeoreferenceOrigin(stageId, origin);
 }
 
 int Context::getTilesetId() {

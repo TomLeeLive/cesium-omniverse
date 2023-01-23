@@ -1,6 +1,33 @@
 #include "cesium/omniverse/LoggerSink.h"
 
 namespace cesium::omniverse {
+
+LoggerSink::LoggerSink(omni::log::Level logLevel)
+    : _logLevel(logLevel) {
+    switch (logLevel) {
+        case omni::log::Level::eVerbose: {
+            set_level(spdlog::level::trace);
+            break;
+        }
+        case omni::log::Level::eInfo: {
+            set_level(spdlog::level::info);
+            break;
+        }
+        case omni::log::Level::eWarn: {
+            set_level(spdlog::level::warn);
+            break;
+        }
+        case omni::log::Level::eError: {
+            set_level(spdlog::level::err);
+            break;
+        }
+        case omni::log::Level::eFatal: {
+            set_level(spdlog::level::critical);
+            break;
+        }
+    }
+}
+
 void LoggerSink::sink_it_([[maybe_unused]] const spdlog::details::log_msg& msg) {
     // The reason we don't need to provide a log channel as the first argument to each of these OMNI_LOG_ functions is
     // because CARB_PLUGIN_IMPL calls CARB_GLOBALS_EX which calls OMNI_GLOBALS_ADD_DEFAULT_CHANNEL and sets the channel
@@ -9,18 +36,23 @@ void LoggerSink::sink_it_([[maybe_unused]] const spdlog::details::log_msg& msg) 
     switch (_logLevel) {
         case omni::log::Level::eVerbose: {
             OMNI_LOG_VERBOSE("%s", formatMessage(msg));
+            break;
         }
         case omni::log::Level::eInfo: {
             OMNI_LOG_INFO("%s", formatMessage(msg));
+            break;
         }
         case omni::log::Level::eWarn: {
             OMNI_LOG_WARN("%s", formatMessage(msg));
+            break;
         }
         case omni::log::Level::eError: {
             OMNI_LOG_ERROR("%s", formatMessage(msg));
+            break;
         }
         case omni::log::Level::eFatal: {
             OMNI_LOG_FATAL("%s", formatMessage(msg));
+            break;
         }
     }
 }

@@ -2,35 +2,35 @@
 
 #include "cesium/omniverse/CesiumOmniverse.h"
 
+#include <carb/PluginUtils.h>
+
 #include "CesiumUsdSchemas/data.h"
 
-#include "cesium/omniverse/OmniTileset.h"
-#include "cesium/omniverse/Util.h"
+#include "cesium/omniverse/Context.h"
+#include "cesium/omniverse/UsdUtil.h"
 
-#include <carb/PluginUtils.h>
-#include <carb/flatcache/FlatCacheUSD.h>
-#include <carb/flatcache/StageWithHistory.h>
-#include <pxr/usd/usd/stageCache.h>
-#include <pxr/usd/usdUtils/stageCache.h>
+#include <CesiumGeospatial/Cartographic.h>
+#include <pxr/base/vt/array.h>
+#include <pxr/usd/sdf/path.h>
+#include <pxr/usd/sdf/types.h>
+#include <pxr/usd/usd/attribute.h>
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usd/stage.h>
 #include <usdrt/scenegraph/base/gf/range3d.h>
 #include <usdrt/scenegraph/base/gf/vec3f.h>
 #include <usdrt/scenegraph/usd/sdf/types.h>
 #include <usdrt/scenegraph/usd/usd/stage.h>
 
-#include <numeric>
-#include <sstream>
-#include <unordered_map>
-
 namespace cesium::omniverse {
 
 class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
   protected:
-    void initialize(const char* cesiumExtensionLocation) noexcept override {
-        Context::init(cesiumExtensionLocation);
+    void init(const char* cesiumExtensionLocation) noexcept override {
+        Context::instance().init(cesiumExtensionLocation);
     }
 
     void destroy() noexcept {
-        Context::destroy();
+        Context::instance().destroy();
     }
 
     void addCesiumData(long stageId, const char* ionToken) noexcept override {
@@ -45,51 +45,38 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     int addTilesetUrl(long stageId, const char* url) noexcept override {
-        const int tilesetId = currentId++;
-        const auto& stage = pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
-        tilesets.insert({tilesetId, std::make_unique<OmniTileset>(stage, url)});
-        return tilesetId;
+        return Context::instance().addTilesetUrl(stageId, url);
     }
 
     int addTilesetIon(long stageId, int64_t ionId, const char* ionToken) noexcept override {
-        const int tilesetId = currentId++;
-        const auto& stage = pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
-        tilesets.insert({tilesetId, std::make_unique<OmniTileset>(stage, ionId, ionToken)});
-        return tilesetId;
+        return Context::instance().addTilesetIon(stageId, ionId, ionToken);
     }
 
     void removeTileset(int tileset) noexcept override {
-        tilesets.erase(tileset);
+        Context::instance().removeTileset(tileset);
     }
 
     void addIonRasterOverlay(int tileset, const char* name, int64_t ionId, const char* ionToken) noexcept override {
-        const auto iter = tilesets.find(tileset);
-        if (iter != tilesets.end()) {
-            iter->second->addIonRasterOverlay(name, ionId, ionToken);
-        }
+        Context::instance().addIonRasterOverlay(tileset, name, ionId, ionToken);
     }
 
     void updateFrame(
-        int tileset,
         const pxr::GfMatrix4d& viewMatrix,
         const pxr::GfMatrix4d& projMatrix,
         double width,
         double height) noexcept override {
-        const auto iter = tilesets.find(tileset);
-        if (iter != tilesets.end()) {
-            const auto viewMatrixGlm = gfToGlmMatrix(viewMatrix);
-            const auto projMatrixGlm = gfToGlmMatrix(projMatrix);
-            iter->second->updateFrame(viewMatrixGlm, projMatrixGlm, width, height);
-        }
+        const auto viewMatrixGlm = gfToGlmMatrix(viewMatrix);
+        const auto projMatrixGlm = gfToGlmMatrix(projMatrix);
+        Context::instance().updateFrame(viewMatrixGlm, projMatrixGlm, width, height);
     }
 
-    void setGeoreferenceOrigin(double longitude, double latitude, double height) noexcept override {
-        Georeference::instance().setOrigin(CesiumGeospatial::Ellipsoid::WGS84.cartographicToCartesian(
-            CesiumGeospatial::Cartographic(glm::radians(longitude), glm::radians(latitude), height)));
+    void setGeoreferenceOrigin(long stageId, double longitude, double latitude, double height) noexcept override {
+        CesiumGeospatial::Cartographic cartographic(glm::radians(longitude), glm::radians(latitude), height);
+        Context::instance().setGeoreferenceOrigin(stageId, cartographic);
     }
 
     void addCubeUsdrt(long stageId) noexcept override {
-        const auto& stage = usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
+        const auto stage = getUsdrtStage(stageId);
 
         // Create a cube prim.
         const usdrt::SdfPath primPath("/example_prim_usdrt");
@@ -130,7 +117,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void addCubeUsd(long stageId) noexcept override {
-        const auto& stage = pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
+        const auto stage = getUsdStage(stageId);
 
         // Create a cube prim.
         const pxr::SdfPath primPath("/example_prim_usd");
@@ -161,9 +148,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void addCubeFabric(long stageId) noexcept override {
-        const auto& stage = usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
-        const auto stageInProgressId = stage->GetStageInProgressId();
-        auto stageInProgress = carb::flatcache::StageInProgress(stageInProgressId);
+        auto stageInProgress = getFabricStageInProgress(stageId);
 
         carb::flatcache::Path primPath("/example_prim_fabric");
         carb::flatcache::Token faceVertexCountsToken("faceVertexCounts");
@@ -247,7 +232,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void removeCubeUsdrt(long stageId) noexcept override {
-        const auto stage = usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
+        const auto stage = getUsdrtStage(stageId);
         const auto primPath = usdrt::SdfPath("/example_prim_usdrt");
 
         const auto& prim = stage->GetPrimAtPath(primPath);
@@ -271,7 +256,15 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         result.push_back(carb::flatcache::PathC(primPath).path);
         deletedPrimsAttribute.Set(result);
     }
-} // namespace cesium::omniverse
+
+    std::string printUsdrtStage(long stageId) noexcept override {
+        return printUsdrtStage(stageId);
+    }
+
+    std::string printFabricStage(long stageId) noexcept override {
+        return printFabricStage(stageId);
+    }
+};
 } // namespace cesium::omniverse
 
 const struct carb::PluginImplDesc pluginImplDesc = {

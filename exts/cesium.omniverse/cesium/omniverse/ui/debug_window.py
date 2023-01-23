@@ -42,8 +42,6 @@ class CesiumOmniverseDebugWindow(ui.Window):
         # Set the function that is called to build widgets when the window is visible
         self.frame.set_build_fn(self._build_fn)
 
-        self._tilesets = []
-
     def destroy_subscription(self):
         """Unsubscribes from the subscription handler for frame updates."""
 
@@ -78,14 +76,12 @@ class CesiumOmniverseDebugWindow(ui.Window):
             """Actions performed on each frame update."""
 
             viewport = get_active_viewport()
-            for tileset in self._tilesets:
-                self._cesium_omniverse_interface.updateFrame(
-                    tileset,
-                    viewport.view,
-                    viewport.projection,
-                    float(viewport.resolution[0]),
-                    float(viewport.resolution[1]),
-                )
+            self._cesium_omniverse_interface.updateFrame(
+                viewport.view,
+                viewport.projection,
+                float(viewport.resolution[0]),
+                float(viewport.resolution[1]),
+            )
 
         def start_update_frame():
             """Starts updating the frame, resulting in tileset updates."""
@@ -107,38 +103,34 @@ class CesiumOmniverseDebugWindow(ui.Window):
         def add_maxar_3d_surface_model():
             """Adds the Maxar data of Cape Canaveral to the stage."""
 
-            # Cape Canaveral
-            self._cesium_omniverse_interface.setGeoreferenceOrigin(-80.53, 28.46, -30.0)
-
             stage_id = omni.usd.get_context().get_stage_id()
 
             self._cesium_omniverse_interface.addCesiumData(stage_id, "")
 
-            self._tilesets.append(
-                self._cesium_omniverse_interface.addTilesetIon(
-                    stage_id,
-                    1387142,
-                    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMjRhYzI0Yi1kNWEwLTQ4ZWYtYjdmZC1hY2JmYWIzYmFiMGUiLCJpZCI6NDQsImlhdCI6MTY2NzQ4OTg0N30.du0tvWptgLWsvM1Gnbv3Zw_pDAOILg1Wr6s2sgK-qlM",
-                )
+            # Cape Canaveral
+            self._cesium_omniverse_interface.setGeoreferenceOrigin(stage_id, -80.53, 28.46, -30.0)
+
+            self._cesium_omniverse_interface.addTilesetIon(
+                stage_id,
+                1387142,
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMjRhYzI0Yi1kNWEwLTQ4ZWYtYjdmZC1hY2JmYWIzYmFiMGUiLCJpZCI6NDQsImlhdCI6MTY2NzQ4OTg0N30.du0tvWptgLWsvM1Gnbv3Zw_pDAOILg1Wr6s2sgK-qlM",
             )
 
         def add_cesium_world_terrain():
             """Adds the standard Cesium World Terrain to the stage."""
 
-            # Cesium HQ
-            self._cesium_omniverse_interface.setGeoreferenceOrigin(-75.1564977, 39.9501464, 150.0)
-
             stage_id = omni.usd.get_context().get_stage_id()
 
             self._cesium_omniverse_interface.addCesiumData(stage_id, "")
+
+            # Cesium HQ
+            self._cesium_omniverse_interface.setGeoreferenceOrigin(stage_id, -75.1564977, 39.9501464, 150.0)
 
             tileset_id = self._cesium_omniverse_interface.addTilesetIon(
                 stage_id,
                 1,
                 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMjRhYzI0Yi1kNWEwLTQ4ZWYtYjdmZC1hY2JmYWIzYmFiMGUiLCJpZCI6NDQsImlhdCI6MTY2NzQ4OTg0N30.du0tvWptgLWsvM1Gnbv3Zw_pDAOILg1Wr6s2sgK-qlM",
             )
-
-            self._tilesets.append(tileset_id)
 
             self._cesium_omniverse_interface.addIonRasterOverlay(
                 tileset_id,
@@ -150,20 +142,18 @@ class CesiumOmniverseDebugWindow(ui.Window):
         def add_bing_maps_terrain():
             """Adds the Bing Maps & Cesium Terrain to the stage."""
 
-            # Cesium HQ
-            self._cesium_omniverse_interface.setGeoreferenceOrigin(-75.1564977, 39.9501464, 150.0)
-
             stage_id = omni.usd.get_context().get_stage_id()
 
             self._cesium_omniverse_interface.addCesiumData(stage_id, "")
+
+            # Cesium HQ
+            self._cesium_omniverse_interface.setGeoreferenceOrigin(stage_id, -75.1564977, 39.9501464, 150.0)
 
             tileset_id = self._cesium_omniverse_interface.addTilesetIon(
                 stage_id,
                 1,
                 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMjRhYzI0Yi1kNWEwLTQ4ZWYtYjdmZC1hY2JmYWIzYmFiMGUiLCJpZCI6NDQsImlhdCI6MTY2NzQ4OTg0N30.du0tvWptgLWsvM1Gnbv3Zw_pDAOILg1Wr6s2sgK-qlM",
             )
-
-            self._tilesets.append(tileset_id)
 
             self._cesium_omniverse_interface.addIonRasterOverlay(
                 tileset_id,
@@ -188,8 +178,6 @@ class CesiumOmniverseDebugWindow(ui.Window):
                 1,
                 ion_token,
             )
-
-            self._tilesets.append(tileset_id)
 
             self._cesium_omniverse_interface.addIonRasterOverlay(
                 tileset_id,

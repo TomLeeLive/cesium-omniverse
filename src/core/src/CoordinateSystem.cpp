@@ -1,11 +1,12 @@
 #include "cesium/omniverse/CoordinateSystem.h"
 
-#include "cesium/omniverse/Util.h"
+#include "cesium/omniverse/UsdUtil.h"
 
 #include <CesiumGeometry/AxisTransforms.h>
 #include <CesiumGeospatial/Cartographic.h>
 #include <CesiumGeospatial/Transforms.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/tokens.h>
 
@@ -13,7 +14,7 @@ namespace cesium::omniverse {
 
 namespace {
 glm::dmat4 getAxisConversionMatrix(long stageId) {
-    const auto& stage = getStage(stageId);
+    const auto stage = getUsdStage(stageId);
     const auto upAxis = pxr::UsdGeomGetStageUpAxis(stage);
 
     auto axisConversion = glm::dmat4(1.0);
@@ -25,7 +26,7 @@ glm::dmat4 getAxisConversionMatrix(long stageId) {
 }
 
 glm::dmat4 getUnitConversionMatrix(long stageId) {
-    const auto& stage = getStage(stageId);
+    const auto stage = getUsdStage(stageId);
     const auto metersPerUnit = pxr::UsdGeomGetStageMetersPerUnit(stage);
     return glm::scale(glm::dmat4(1.0), glm::dvec3(metersPerUnit));
 }

@@ -15,17 +15,15 @@ class ICesiumOmniverseInterface {
   public:
     CARB_PLUGIN_INTERFACE("cesium::omniverse::ICesiumOmniverseInterface", 0, 0);
 
-    enum UpAxis { Y_UP, Z_UP };
-
     /**
      * @brief Call this before any tilesets are created.
      *
-     * @param cesiumMemLocation The folder containing mem.cesium
+     * @param cesiumExtensionLocation The extension location
      */
-    virtual void initialize(const char* cesiumMemLocation) noexcept = 0;
+    virtual void init(const char* cesiumExtensionLocation) noexcept = 0;
 
     /**
-     * @brief Call this to free resources on program exist.
+     * @brief Call this to free resources on program exit.
      */
     virtual void destroy() noexcept = 0;
 
@@ -74,16 +72,14 @@ class ICesiumOmniverseInterface {
     virtual void addIonRasterOverlay(int tileset, const char* name, int64_t ionId, const char* ionToken) noexcept = 0;
 
     /**
-     * @brief Updates the tileset this frame.
+     * @brief Updates all tilesets this frame.
      *
-     * @param tileset The tileset id. If there's no tileset with this id nothing happens.
-     * @param viewMatrix The view matrix.
-     * @param projMatrix The projection matrix.
+     * @param viewMatrix The view matrix
+     * @param projMatrix The projection matrix
      * @param width The screen width
      * @param height The screen height
      */
     virtual void updateFrame(
-        int tileset,
         const pxr::GfMatrix4d& viewMatrix,
         const pxr::GfMatrix4d& projMatrix,
         double width,
@@ -92,19 +88,12 @@ class ICesiumOmniverseInterface {
     /**
      * @brief Sets the georeference origin based on the WGS84 ellipsoid.
      *
+     * @param stageId The USD stage id
      * @param longitude The longitude in degrees
      * @param latitude The latitude in degrees
      * @param height The height in meters
      */
-    virtual void setGeoreferenceOrigin(double longitude, double latitude, double height) noexcept = 0;
-
-    /**
-     * @brief Sets the coordinate system of the USD stage.
-     *
-     * @param upAxis The up axis
-     * @param metersPerUnit The meters per unit
-     */
-    virtual void setCoordinateSystem(UpAxis upAxis, double metersPerUnit) noexcept = 0;
+    virtual void setGeoreferenceOrigin(long stageId, double longitude, double latitude, double height) noexcept = 0;
 
     /**
      * @brief Adds a cube to Fabric using the USDRT API.

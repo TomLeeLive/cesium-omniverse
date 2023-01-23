@@ -1,5 +1,7 @@
 #include "cesium/omniverse/HttpAssetAccessor.h"
 
+#include "cesium/omniverse/Context.h"
+
 #include <zlib.h>
 
 namespace cesium::omniverse {
@@ -58,7 +60,7 @@ struct GZipDecompressInterceptor : public cpr::Interceptor {
         if (curl_error == CURLE_PEER_FAILED_VERIFICATION) {
             long verifyResult;
             curl_easy_getinfo(session.GetCurlHolder()->handle, CURLINFO_SSL_VERIFYRESULT, &verifyResult);
-            spdlog::warn(fmt::format("SSL PEER VERIFICATION FAILED: {}", verifyResult));
+            CESIUM_LOG_WARN("SSL PEER VERIFICATION FAILED: {}", verifyResult);
         }
 
         auto response = session.Complete(curl_error);
@@ -87,7 +89,7 @@ CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>> HttpAssetAccess
     session->SetHeader(cprHeaders);
     session->SetUrl(cpr::Url(url));
     session->GetCallback([promise, url, headers](cpr::Response&& response) mutable {
-        spdlog::info("size {}", response.text.size());
+        CESIUM_LOG_INFO("size {}", response.text.size());
         promise.resolve(std::make_shared<HttpAssetRequest>("GET", std::move(url), headers, std::move(response)));
     });
 

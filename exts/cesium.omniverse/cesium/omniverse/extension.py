@@ -71,7 +71,7 @@ class CesiumOmniverseExtension(omni.ext.IExt):
         # Acquire the Cesium Omniverse interface.
         global _cesium_omniverse_interface
         _cesium_omniverse_interface = acquire_cesium_omniverse_interface()
-        _cesium_omniverse_interface.initialize(cesium_extension_location)
+        _cesium_omniverse_interface.init(cesium_extension_location)
 
         # Show the window. It will call `self.show_window`
         if show_on_startup:

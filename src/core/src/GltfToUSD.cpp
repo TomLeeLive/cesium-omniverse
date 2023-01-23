@@ -1,6 +1,7 @@
 #include "cesium/omniverse/GltfToUSD.h"
 
 #include "cesium/omniverse/InMemoryAssetResolver.h"
+#include "cesium/omniverse/Context.h"
 
 #ifdef CESIUM_OMNI_MSVC
 #pragma push_macro("OPAQUE")
@@ -774,7 +775,7 @@ pxr::UsdPrim GltfToUSD::convertToUSD(
     const pxr::SdfPath& modelPath,
     const CesiumGltf::Model& model,
     const glm::dmat4& matrix) {
-    spdlog::default_logger()->info("convert to USD: {}", modelPath.GetString());
+    CESIUM_LOG_INFO("convert to USD: {}", modelPath.GetString());
 
     std::vector<pxr::SdfAssetPath> textureUSDPaths;
     textureUSDPaths.reserve(model.textures.size());

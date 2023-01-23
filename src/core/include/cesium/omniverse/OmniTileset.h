@@ -1,11 +1,8 @@
 #pragma once
 
-#ifdef CESIUM_OMNI_MSVC
-#pragma push_macro("OPAQUE")
-#undef OPAQUE
-#endif
-
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace Cesium3DTilesSelection {
 class Tileset;
@@ -17,8 +14,9 @@ class RenderResourcesPreparer;
 
 class OmniTileset {
   public:
-    OmniTileset(int tilesetId, long stageId, const std::string& url);
-    OmniTileset(long stageId, int64_t ionId, const std::string& ionToken);
+    OmniTileset(const std::string& name, long stageId, const std::string& url);
+    OmniTileset(const std::string& name, long stageId, int64_t ionId, const std::string& ionToken);
+    ~OmniTileset();
     void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates);
     void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken);
 
