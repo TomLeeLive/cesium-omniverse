@@ -14,6 +14,7 @@
 #include <Cesium3DTilesSelection/IonRasterOverlay.h>
 #include <Cesium3DTilesSelection/Tileset.h>
 #include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usd/prim.h>
 
 // #include <Cesium3DTilesSelection/IonRasterOverlay.h>
 // #include <CesiumGeometry/AxisTransforms.h>
@@ -33,7 +34,7 @@ namespace {
 InitializeTilesetResult initializeTileset(const std::string& name, long stageId) {
     auto stage = getUsdStage(stageId);
     const auto tilesetPath = stage->GetPseudoRoot().GetPath().AppendChild(pxr::TfToken(name));
-    const auto renderResourcesPreparer = std::make_shared<RenderResourcesPreparer>(stage, tilesetPath);
+    const auto renderResourcesPreparer = std::make_shared<RenderResourcesPreparer>();
     auto& context = Context::instance();
     auto asyncSystem = CesiumAsync::AsyncSystem(context.getTaskProcessor());
     auto externals = Cesium3DTilesSelection::TilesetExternals{
@@ -44,6 +45,12 @@ InitializeTilesetResult initializeTileset(const std::string& name, long stageId)
         context.getLogger()};
 
     Cesium3DTilesSelection::TilesetOptions options;
+
+    options.enableFrustumCulling = false;
+    options.forbidHoles = true;
+    options.maximumSimultaneousTileLoads = 10;
+    options.loadingDescendantLimit = 10;
+
     options.loadErrorCallback = [](const Cesium3DTilesSelection::TilesetLoadFailureDetails& error) {
         // Check for a 401 connecting to Cesium ion, which means the token is invalid
         // (or perhaps the asset ID is). Also check for a 404, because ion returns 404
@@ -82,7 +89,8 @@ void OmniTileset::updateFrame(const std::vector<Cesium3DTilesSelection::ViewStat
             auto renderContent = tile->getContent().getRenderContent();
             if (renderContent) {
                 auto renderResources = renderContent->getRenderResources();
-                _renderResourcesPreparer->setVisible(renderResources, false);
+                (void)renderResources;
+                // TODO: setVisible(false);
             }
         }
     }
@@ -92,7 +100,8 @@ void OmniTileset::updateFrame(const std::vector<Cesium3DTilesSelection::ViewStat
             const auto renderContent = tile->getContent().getRenderContent();
             if (renderContent) {
                 auto renderResources = renderContent->getRenderResources();
-                _renderResourcesPreparer->setVisible(renderResources, true);
+                (void)renderResources;
+                // TODO: setVisible(true);
             }
         }
     }
@@ -117,5 +126,10 @@ void OmniTileset::addIonRasterOverlay(const std::string& name, int64_t ionId, co
     const auto rasterOverlay = new Cesium3DTilesSelection::IonRasterOverlay(name, ionId, ionToken, options);
     _tileset->getOverlays().add(rasterOverlay);
 };
+
+void OmniTileset::setTransform(const glm::dmat4& globalToLocal) {
+    (void)globalToLocal;
+    // TODO
+}
 
 } // namespace cesium::omniverse

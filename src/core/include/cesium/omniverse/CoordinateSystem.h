@@ -16,6 +16,7 @@ class CoordinateSystem {
     const glm::dmat4& getGlobalToLocal() const;
     const glm::dmat4& getLocalToGlobal() const;
 
+  private:
     glm::dmat4 _globalToLocal{1.0};
     glm::dmat4 _localToGlobal{1.0};
 };

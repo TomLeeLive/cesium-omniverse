@@ -6,11 +6,34 @@
 #endif
 
 #include <Cesium3DTilesSelection/IPrepareRendererResources.h>
+#include <CesiumGeometry/AxisTransforms.h>
+#include <pxr/usd/usd/common.h>
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usdGeom/xform.h>
 
 namespace cesium::omniverse {
-class RenderResourcesPreparer : public Cesium3DTilesSelection::IPrepareRendererResources {
+struct TileWorkerRenderResources {
+    pxr::SdfLayerRefPtr layer;
+    pxr::SdfPath primPath;
+    bool enable;
+};
+
+struct TileRenderResources {
+    pxr::UsdPrim prim;
+    bool enable;
+};
+
+struct RasterRenderResources {
+    std::vector<std::byte> image;
+};
+
+class RenderResourcesPreparerOld : public Cesium3DTilesSelection::IPrepareRendererResources {
   public:
-    RenderResourcesPreparer();
+    RenderResourcesPreparerOld(const pxr::UsdStageRefPtr& stage, const pxr::SdfPath& tilesetPath);
+
+    void setTransform(const glm::dmat4& globalToLocal);
+
+    void setVisible(void* tileRenderResources, bool enable);
 
     CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> prepareInLoadThread(
         const CesiumAsync::AsyncSystem& asyncSystem,
@@ -45,5 +68,9 @@ class RenderResourcesPreparer : public Cesium3DTilesSelection::IPrepareRendererR
         int32_t overlayTextureCoordinateID,
         const Cesium3DTilesSelection::RasterOverlayTile& rasterTile,
         void* pMainThreadRendererResources) noexcept override;
+
+    pxr::UsdAttribute tilesetTransform;
+    pxr::UsdStageRefPtr stage;
+    pxr::SdfPath tilesetPath;
 };
 } // namespace cesium::omniverse

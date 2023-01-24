@@ -1,7 +1,6 @@
 #include "cesium/omniverse/GltfToUSD.h"
 
-#include "cesium/omniverse/InMemoryAssetResolver.h"
-#include "cesium/omniverse/Context.h"
+#include "cesium/omniverse/UsdUtil.h"
 
 #ifdef CESIUM_OMNI_MSVC
 #pragma push_macro("OPAQUE")
@@ -11,247 +10,78 @@
 #include <CesiumGltf/AccessorView.h>
 #include <CesiumGltf/Model.h>
 #include <CesiumGltfReader/GltfReader.h>
-#include <glm/glm.hpp>
-#include <pxr/base/gf/matrix4d.h>
-#include <pxr/base/gf/quatd.h>
-#include <pxr/base/gf/vec3d.h>
-#include <pxr/usd/sdf/types.h>
-#include <pxr/usd/usdGeom/mesh.h>
-#include <pxr/usd/usdGeom/primvar.h>
-#include <pxr/usd/usdGeom/primvarsAPI.h>
-#include <pxr/usd/usdGeom/xform.h>
-#include <pxr/usd/usdShade/material.h>
-#include <pxr/usd/usdShade/materialBindingAPI.h>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <spdlog/fmt/fmt.h>
+#include <usdrt/gf/range.h>
+#include <usdrt/gf/vec.h>
+#include <usdrt/scenegraph/usd/sdf/types.h>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
-
-#include <cstddef>
-#include <cstdlib>
-#include <fstream>
 #include <numeric>
-#include <vector>
-
-static std::string errorMessage;
-
-static const char* SCALE_PRIMVAR_ID = "overlayScale";
-static const char* TRANSLATION_PRIMVAR_ID = "overlayTranslation";
-
-// clang-format off
-namespace pxr {
-TF_DEFINE_PRIVATE_TOKENS(
-    _tokens,
-
-    // Tokens used for USD Preview Surface
-    // Notes below copied from helloWorld.cpp in Connect Sample 200.0.0
-    //
-    // Private tokens for building up SdfPaths. We recommend
-    // constructing SdfPaths via tokens, as there is a performance
-    // cost to constructing them directly via strings (effectively,
-    // a table lookup per path element). Similarly, any API which
-    // takes a token as input should use a predefined token
-    // rather than one created on the fly from a string.
-    (a)
-    (add)
-    ((add_subidentifier, "add(float2,float2)"))
-    (b)
-    (clamp)
-    (coord)
-    (data_lookup_uniform_float2)
-    (default_value)
-    (diffuse_color_constant)
-    (diffuseColor)
-    (file)
-    (i)
-    (lookup_color)
-    ((matDefault, "default"))
-    (mdl)
-    (metallic)
-    (multiply)
-    ((multiply_subidentifier, "multiply(float2,float2)"))
-    (name)
-    (normal)
-    (OmniPBR)
-    (out)
-    ((PrimStShaderId, "UsdPrimvarReader_float2"))
-    (RAW)
-    (reflection_roughness_constant)
-    (result)
-    (rgb)
-    (roughness)
-    ((scale_primvar, SCALE_PRIMVAR_ID))
-    (scale_primvar_reader)
-    (sRGB)
-    (st)
-    (st0)
-    (st_0)
-    (st_1)
-    ((stPrimvarName, "frame:stPrimvarName"))
-    (surface)
-    (tex)
-    (texture_coordinate_2d)
-    ((translation_primvar, TRANSLATION_PRIMVAR_ID))
-    (translation_primvar_reader)
-    (UsdPreviewSurface)
-    ((UsdShaderId, "UsdPreviewSurface"))
-    (UsdUVTexture)
-    (varname)
-    (vertex)
-    (wrapS)
-    (wrapT)
-    (wrap_u)
-    (wrap_v));
-}
-// clang-format on
+#include <optional>
 
 namespace cesium::omniverse {
 
 namespace {
-bool isIdentityMatrix(const std::vector<double>& matrix) {
-    static constexpr double identity[] = {
-        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
-    return std::equal(matrix.begin(), matrix.end(), identity);
+
+glm::dmat4 unpackMatrix(const std::vector<double>& values) {
+    return glm::dmat4(
+        values[0],
+        values[1],
+        values[2],
+        values[3],
+        values[4],
+        values[5],
+        values[6],
+        values[7],
+        values[8],
+        values[9],
+        values[10],
+        values[11],
+        values[12],
+        values[13],
+        values[14],
+        values[15]);
 }
 
-template <typename IndexType>
-pxr::VtArray<int> createIndices(
-    const CesiumGltf::MeshPrimitive& primitive,
-    const CesiumGltf::AccessorView<IndexType>& indicesAccessorView) {
-    if (indicesAccessorView.status() != CesiumGltf::AccessorViewStatus::Valid) {
-        return {};
-    }
-
-    if (primitive.mode == CesiumGltf::MeshPrimitive::Mode::TRIANGLES) {
-        if (indicesAccessorView.size() % 3 != 0) {
-            return {};
-        }
-
-        pxr::VtArray<int> indices;
-        indices.resize(static_cast<std::size_t>(indicesAccessorView.size()));
-        for (std::int64_t i = 0; i < indicesAccessorView.size(); ++i) {
-            indices[static_cast<std::size_t>(i)] = static_cast<int>(indicesAccessorView[i]);
-        }
-
-        return indices;
-    }
-
-    if (primitive.mode == CesiumGltf::MeshPrimitive::Mode::TRIANGLE_STRIP) {
-        if (indicesAccessorView.size() <= 2) {
-            return {};
-        }
-
-        pxr::VtArray<int> indices;
-        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size() - 2) * 3);
-        for (std::int64_t i = 0; i < indicesAccessorView.size() - 2; ++i) {
-            if (i % 2) {
-                indices.push_back(static_cast<const int>(indicesAccessorView[i]));
-                indices.push_back(static_cast<const int>(indicesAccessorView[i + 2]));
-                indices.push_back(static_cast<const int>(indicesAccessorView[i + 1]));
-            } else {
-                indices.push_back(static_cast<const int>(indicesAccessorView[i]));
-                indices.push_back(static_cast<const int>(indicesAccessorView[i + 1]));
-                indices.push_back(static_cast<const int>(indicesAccessorView[i + 2]));
-            }
-        }
-
-        return indices;
-    }
-
-    if (primitive.mode == CesiumGltf::MeshPrimitive::Mode::TRIANGLE_FAN) {
-        if (indicesAccessorView.size() <= 2) {
-            return {};
-        }
-
-        pxr::VtArray<int> indices;
-        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size() - 2) * 3);
-        for (std::int64_t i = 0; i < indicesAccessorView.size() - 2; ++i) {
-            indices.push_back(static_cast<const int>(indicesAccessorView[0]));
-            indices.push_back(static_cast<const int>(indicesAccessorView[i + 1]));
-            indices.push_back(static_cast<const int>(indicesAccessorView[i + 2]));
-        }
-
-        return indices;
-    }
-
-    return {};
+glm::dvec3 unpackVec3(const std::vector<double>& values) {
+    return glm::dvec3(values[0], values[1], values[2]);
 }
 
-CesiumGltf::AccessorView<glm::vec2> getUVsAccessorView(
-    const CesiumGltf::Model& model,
-    const CesiumGltf::MeshPrimitive& primitive,
-    const std::string& semantic,
-    std::int32_t textureCoordId) {
-    auto uvAttribute = primitive.attributes.find(fmt::format("{}_{}", semantic, textureCoordId));
-    if (uvAttribute == primitive.attributes.end()) {
-        return CesiumGltf::AccessorView<glm::vec2>();
-    }
-
-    auto uvAccessor = model.getSafe<CesiumGltf::Accessor>(&model.accessors, uvAttribute->second);
-    if (!uvAccessor) {
-        return CesiumGltf::AccessorView<glm::vec2>();
-    }
-
-    return CesiumGltf::AccessorView<glm::vec2>(model, *uvAccessor);
+glm::dquat unpackQuat(const std::vector<double>& values) {
+    return glm::dquat(values[0], values[1], values[2], values[3]);
 }
 
-pxr::VtArray<pxr::GfVec2f> getUVs(
-    const CesiumGltf::Model& model,
-    const CesiumGltf::MeshPrimitive& primitive,
-    const std::string& semantic,
-    std::int32_t textureCoordId,
-    bool flipUVs) {
+glm::dmat4 getNodeMatrix(const CesiumGltf::Node& node) {
+    glm::dmat4 nodeMatrix(1.0);
 
-    auto uvs = getUVsAccessorView(model, primitive, semantic, textureCoordId);
-    if (uvs.status() != CesiumGltf::AccessorViewStatus::Valid) {
-        return {};
-    }
+    if (node.matrix.size() == 16) {
+        nodeMatrix = unpackMatrix(node.matrix);
+    } else {
+        glm::dmat4 translation(1.0);
+        glm::dmat4 rotation(1.0);
+        glm::dmat4 scale(1.0);
 
-    pxr::VtArray<pxr::GfVec2f> usdUVs;
-    usdUVs.reserve(static_cast<std::size_t>(uvs.size()));
-    for (int64_t i = 0; i < uvs.size(); ++i) {
-        glm::vec2 vert = uvs[i];
-
-        if (flipUVs) {
-            vert.y = 1.0f - vert.y;
+        if (node.scale.size() == 3) {
+            scale = glm::scale(scale, unpackVec3(node.scale));
         }
 
-        usdUVs.push_back(pxr::GfVec2f(vert.x, vert.y));
-    }
-
-    return usdUVs;
-}
-
-pxr::VtArray<pxr::GfVec2f> getPrimitiveUVs(
-    const CesiumGltf::Model& model,
-    const CesiumGltf::MeshPrimitive& primitive,
-    std::int32_t textureCoordId) {
-    return getUVs(model, primitive, "TEXCOORD", textureCoordId, true);
-}
-
-pxr::VtArray<pxr::GfVec2f> getRasterOverlayUVs(
-    const CesiumGltf::Model& model,
-    const CesiumGltf::MeshPrimitive& primitive,
-    std::int32_t rasterOverlayId) {
-    return getUVs(model, primitive, "_CESIUMOVERLAY", rasterOverlayId, false);
-}
-
-bool hasRasterOverlayUVs(const CesiumGltf::Model& model, std::int32_t rasterOverlayId) {
-    for (const auto& mesh : model.meshes) {
-        for (const auto& primitive : mesh.primitives) {
-            const auto uvs = getUVsAccessorView(model, primitive, "_CESIUMOVERLAY", rasterOverlayId);
-            if (uvs.status() == CesiumGltf::AccessorViewStatus::Valid) {
-                return true;
-            }
+        if (node.rotation.size() == 4) {
+            rotation = glm::toMat4(unpackQuat(node.rotation));
         }
+
+        if (node.translation.size() == 3) {
+            translation = glm::translate(translation, unpackVec3(node.translation));
+        }
+
+        nodeMatrix = translation * rotation * scale;
     }
 
-    return false;
+    return nodeMatrix;
 }
 
-pxr::VtArray<pxr::GfVec3f>
+usdrt::VtArray<usdrt::GfVec3f>
 getPrimitivePositions(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive) {
-    // retrieve required positions first
     auto positionAttribute = primitive.attributes.find("POSITION");
     if (positionAttribute == primitive.attributes.end()) {
         return {};
@@ -267,24 +97,110 @@ getPrimitivePositions(const CesiumGltf::Model& model, const CesiumGltf::MeshPrim
         return {};
     }
 
-    pxr::VtArray<pxr::GfVec3f> usdPositions;
+    // TODO: a memcpy should work just as well
+    usdrt::VtArray<usdrt::GfVec3f> usdPositions;
     usdPositions.reserve(static_cast<std::size_t>(positions.size()));
-    for (int64_t i = 0; i < positions.size(); ++i) {
-        const glm::vec3& vert = positions[i];
-        usdPositions.push_back(pxr::GfVec3f(vert.x, vert.y, vert.z));
+    for (auto i = 0; i < positions.size(); i++) {
+        const auto& position = positions[i];
+        usdPositions.push_back(usdrt::GfVec3f(position.x, position.y, position.z));
     }
 
     return usdPositions;
 }
 
-pxr::VtArray<int> getPrimitiveIndices(
+std::optional<usdrt::GfRange3d>
+getPrimitiveExtent(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive) {
+    auto positionAttribute = primitive.attributes.find("POSITION");
+    if (positionAttribute == primitive.attributes.end()) {
+        return std::nullopt;
+    }
+
+    auto positionAccessor = model.getSafe<CesiumGltf::Accessor>(&model.accessors, positionAttribute->second);
+    if (!positionAccessor) {
+        return std::nullopt;
+    }
+
+    const auto& min = positionAccessor->min;
+    const auto& max = positionAccessor->max;
+
+    if (min.size() != 3 || max.size() != 3) {
+        return std::nullopt;
+    }
+
+    return usdrt::GfRange3d(usdrt::GfVec3d(min[0], min[1], min[2]), usdrt::GfVec3d(max[0], max[1], max[2]));
+}
+
+template <typename IndexType>
+usdrt::VtArray<int> createIndices(
+    const CesiumGltf::MeshPrimitive& primitive,
+    const CesiumGltf::AccessorView<IndexType>& indicesAccessorView) {
+    if (indicesAccessorView.status() != CesiumGltf::AccessorViewStatus::Valid) {
+        return {};
+    }
+
+    if (primitive.mode == CesiumGltf::MeshPrimitive::Mode::TRIANGLES) {
+        if (indicesAccessorView.size() % 3 != 0) {
+            return {};
+        }
+
+        usdrt::VtArray<int> indices;
+        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size()));
+        for (auto i = 0; i < indicesAccessorView.size(); i++) {
+            indices.push_back(static_cast<int>(indicesAccessorView[i]));
+        }
+
+        return indices;
+    }
+
+    if (primitive.mode == CesiumGltf::MeshPrimitive::Mode::TRIANGLE_STRIP) {
+        if (indicesAccessorView.size() <= 2) {
+            return {};
+        }
+
+        usdrt::VtArray<int> indices;
+        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size() - 2) * 3);
+        for (auto i = 0; i < indicesAccessorView.size() - 2; i++) {
+            if (i % 2) {
+                indices.push_back(static_cast<int>(indicesAccessorView[i]));
+                indices.push_back(static_cast<int>(indicesAccessorView[i + 2]));
+                indices.push_back(static_cast<int>(indicesAccessorView[i + 1]));
+            } else {
+                indices.push_back(static_cast<int>(indicesAccessorView[i]));
+                indices.push_back(static_cast<int>(indicesAccessorView[i + 1]));
+                indices.push_back(static_cast<int>(indicesAccessorView[i + 2]));
+            }
+        }
+
+        return indices;
+    }
+
+    if (primitive.mode == CesiumGltf::MeshPrimitive::Mode::TRIANGLE_FAN) {
+        if (indicesAccessorView.size() <= 2) {
+            return {};
+        }
+
+        usdrt::VtArray<int> indices;
+        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size() - 2) * 3);
+        for (auto i = 0; i < indicesAccessorView.size() - 2; i++) {
+            indices.push_back(static_cast<int>(indicesAccessorView[0]));
+            indices.push_back(static_cast<int>(indicesAccessorView[i + 1]));
+            indices.push_back(static_cast<int>(indicesAccessorView[i + 2]));
+        }
+
+        return indices;
+    }
+
+    return {};
+}
+
+usdrt::VtArray<int> getPrimitiveIndices(
     const CesiumGltf::Model& model,
     const CesiumGltf::MeshPrimitive& primitive,
-    const pxr::VtArray<pxr::GfVec3f>& positions) {
+    const usdrt::VtArray<usdrt::GfVec3f>& positions) {
     const CesiumGltf::Accessor* indicesAccessor =
         model.getSafe<CesiumGltf::Accessor>(&model.accessors, primitive.indices);
     if (!indicesAccessor) {
-        pxr::VtArray<int> indices;
+        usdrt::VtArray<int> indices;
         indices.resize(positions.size());
         std::iota(indices.begin(), indices.end(), 0);
         return indices;
@@ -304,38 +220,39 @@ pxr::VtArray<int> getPrimitiveIndices(
     return {};
 }
 
-pxr::VtArray<pxr::GfVec3f> getPrimitiveNormals(
+usdrt::VtArray<usdrt::GfVec3f> getPrimitiveNormals(
     const CesiumGltf::Model& model,
     const CesiumGltf::MeshPrimitive& primitive,
-    const pxr::VtArray<pxr::GfVec3f>& positions,
-    const pxr::VtArray<int>& indices) {
+    const usdrt::VtArray<usdrt::GfVec3f>& positions,
+    const usdrt::VtArray<int>& indices) {
     // get normal view
     auto normalAttribute = primitive.attributes.find("NORMAL");
     if (normalAttribute != primitive.attributes.end()) {
         auto normalsView = CesiumGltf::AccessorView<glm::vec3>(model, normalAttribute->second);
         if (normalsView.status() == CesiumGltf::AccessorViewStatus::Valid) {
-            pxr::VtArray<pxr::GfVec3f> normalsUsd;
+            usdrt::VtArray<usdrt::GfVec3f> normalsUsd;
             normalsUsd.reserve(static_cast<std::size_t>(normalsView.size()));
-            for (int64_t i = 0; i < normalsView.size(); ++i) {
+            for (auto i = 0; i < normalsView.size(); ++i) {
                 const glm::vec3& n = normalsView[i];
-                normalsUsd.push_back(pxr::GfVec3f(n.x, n.y, n.z));
+                normalsUsd.push_back(usdrt::GfVec3f(n.x, n.y, n.z));
             }
 
             return normalsUsd;
         }
     }
 
-    // generate normals
-    pxr::VtArray<pxr::GfVec3f> normalsUsd(positions.size(), pxr::GfVec3f(0.0f));
-    for (std::size_t i = 0; i < indices.size(); i += 3) {
-        auto idx0 = static_cast<std::size_t>(indices[i]);
-        auto idx1 = static_cast<std::size_t>(indices[i + 1]);
-        auto idx2 = static_cast<std::size_t>(indices[i + 2]);
+    // Generate normals
+    // TODO: confirm that VtArray elements are initialized to 0
+    usdrt::VtArray<usdrt::GfVec3f> normalsUsd(positions.size());
+    for (auto i = 0; i < indices.size(); i += 3) {
+        auto idx0 = indices[i];
+        auto idx1 = indices[i + 1];
+        auto idx2 = indices[i + 2];
 
-        const pxr::GfVec3f& p0 = positions[idx0];
-        const pxr::GfVec3f& p1 = positions[idx1];
-        const pxr::GfVec3f& p2 = positions[idx2];
-        pxr::GfVec3f n = pxr::GfCross(p1 - p0, p2 - p0);
+        const usdrt::GfVec3f& p0 = positions[idx0];
+        const usdrt::GfVec3f& p1 = positions[idx1];
+        const usdrt::GfVec3f& p2 = positions[idx2];
+        usdrt::GfVec3f n = usdrt::GfCross(p1 - p0, p2 - p0);
         n.Normalize();
 
         normalsUsd[idx0] += n;
@@ -350,509 +267,183 @@ pxr::VtArray<pxr::GfVec3f> getPrimitiveNormals(
     return normalsUsd;
 }
 
-std::string makeAssetPath(const std::string& texturePath) {
-    return fmt::format("{}/mem.cesium[{}]", GltfToUSD::CesiumMemLocation.generic_string(), texturePath);
-}
-
-pxr::SdfAssetPath convertTextureToUSD(
-    const pxr::SdfPath& parentPath,
+CesiumGltf::AccessorView<glm::vec2> getUVsAccessorView(
     const CesiumGltf::Model& model,
-    const CesiumGltf::Texture& texture,
-    int32_t textureIdx) {
-    std::string texturePath = fmt::format("{}/texture_{}.bmp", parentPath.GetString(), textureIdx);
-
-    auto textureSource = static_cast<std::size_t>(texture.source);
-    const CesiumGltf::Image& img = model.images[textureSource];
-    auto inMemoryAsset = std::make_shared<pxr::InMemoryAsset>(GltfToUSD::writeImageToBmp(img.cesium));
-    auto& ctx = pxr::InMemoryAssetContext::instance();
-    ctx.assets.insert({texturePath, std::move(inMemoryAsset)});
-
-    return pxr::SdfAssetPath(makeAssetPath(texturePath));
-}
-
-#ifdef CESIUM_OMNI_USE_OMNIPBR
-pxr::UsdShadeShader defineMdlShader_OmniPBR(
-    const pxr::UsdStageRefPtr& stage,
-    const pxr::SdfPath& materialPath,
-    const pxr::TfToken& shaderName,
-    const pxr::SdfAssetPath& assetPath,
-    const pxr::TfToken& subIdentifier) {
-    auto shader = pxr::UsdShadeShader::Define(stage, materialPath.AppendChild(shaderName));
-    shader.SetSourceAsset(assetPath, pxr::_tokens->mdl);
-    shader.SetSourceAssetSubIdentifier(subIdentifier, pxr::_tokens->mdl);
-    shader.CreateIdAttr(pxr::VtValue(shaderName));
-
-    return shader;
-}
-
-pxr::UsdShadeMaterial convertMaterialToUSD_OmniPBR(
-    pxr::UsdStageRefPtr& stage,
-    const pxr::SdfPath& parentPath,
-    const std::vector<pxr::SdfAssetPath>& usdTexturePaths,
-    const bool hasRasterOverlay,
-    const pxr::SdfAssetPath& rasterOverlayPath,
-    [[maybe_unused]] const CesiumGltf::Material& material,
-    int32_t materialIdx) {
-    const std::string materialName = fmt::format("material_{}", materialIdx);
-    pxr::SdfPath materialPath = parentPath.AppendChild(pxr::TfToken(materialName));
-    pxr::UsdShadeMaterial materialUsd = pxr::UsdShadeMaterial::Define(stage, materialPath);
-
-    const auto& pbrMetallicRoughness = material.pbrMetallicRoughness;
-    auto pbrShader = defineMdlShader_OmniPBR(
-        stage, materialPath, pxr::_tokens->OmniPBR, pxr::SdfAssetPath("OmniPBR.mdl"), pxr::_tokens->OmniPBR);
-
-    const auto setupDiffuseTexture = [&stage, &materialPath, &pbrShader](const pxr::SdfAssetPath& texturePath) {
-        const auto nvidiaSupportDefinitions = pxr::SdfAssetPath("nvidia/support_definitions.mdl");
-
-        // Set up texture_coordinates_2d shader.
-        auto textureCoordinates2dShader = defineMdlShader_OmniPBR(
-            stage,
-            materialPath,
-            pxr::_tokens->texture_coordinate_2d,
-            nvidiaSupportDefinitions,
-            pxr::_tokens->texture_coordinate_2d);
-
-        const auto iTexCoordInput =
-            textureCoordinates2dShader.CreateInput(pxr::_tokens->i, pxr::SdfValueTypeNames->Int);
-        iTexCoordInput.Set(0);
-        const auto textureCoordinates2dOutput =
-            textureCoordinates2dShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
-
-        // Set up add & divide nodes for translation & scale.
-        auto scalePrimvarReaderShader = defineMdlShader_OmniPBR(
-            stage,
-            materialPath,
-            pxr::_tokens->scale_primvar_reader,
-            nvidiaSupportDefinitions,
-            pxr::_tokens->data_lookup_uniform_float2);
-
-        scalePrimvarReaderShader.CreateInput(pxr::_tokens->default_value, pxr::SdfValueTypeNames->Float2)
-            .Set(pxr::GfVec2f(1.0f, 1.0f));
-        scalePrimvarReaderShader.CreateInput(pxr::_tokens->name, pxr::SdfValueTypeNames->String).Set(SCALE_PRIMVAR_ID);
-
-        const auto scalePrimvarReaderOutput =
-            scalePrimvarReaderShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
-
-        auto scaleShader = defineMdlShader_OmniPBR(
-            stage,
-            materialPath,
-            pxr::_tokens->multiply,
-            nvidiaSupportDefinitions,
-            pxr::_tokens->multiply_subidentifier);
-
-        const auto scaleAInput = scaleShader.CreateInput(pxr::_tokens->a, pxr::SdfValueTypeNames->Float2);
-        scaleAInput.ConnectToSource(textureCoordinates2dOutput);
-        const auto scaleBInput = scaleShader.CreateInput(pxr::_tokens->b, pxr::SdfValueTypeNames->Float2);
-        scaleBInput.ConnectToSource(scalePrimvarReaderOutput);
-
-        const auto scaleOutput = scaleShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
-
-        auto translationPrimvarReader = defineMdlShader_OmniPBR(
-            stage,
-            materialPath,
-            pxr::_tokens->translation_primvar_reader,
-            nvidiaSupportDefinitions,
-            pxr::_tokens->data_lookup_uniform_float2);
-
-        translationPrimvarReader.CreateInput(pxr::_tokens->default_value, pxr::SdfValueTypeNames->Float2)
-            .Set(pxr::GfVec2f(0.0f, 0.0f));
-        translationPrimvarReader.CreateInput(pxr::_tokens->name, pxr::SdfValueTypeNames->String)
-            .Set(TRANSLATION_PRIMVAR_ID);
-
-        const auto translatePrimvarReaderOutput =
-            translationPrimvarReader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
-
-        auto translationShader = defineMdlShader_OmniPBR(
-            stage, materialPath, pxr::_tokens->add, nvidiaSupportDefinitions, pxr::_tokens->add_subidentifier);
-
-        const auto translationAInput = translationShader.CreateInput(pxr::_tokens->a, pxr::SdfValueTypeNames->Float2);
-        translationAInput.ConnectToSource(scaleOutput);
-        const auto translationBInput = translationShader.CreateInput(pxr::_tokens->b, pxr::SdfValueTypeNames->Float2);
-        translationBInput.ConnectToSource(translatePrimvarReaderOutput);
-
-        const auto translationOutput =
-            translationShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
-
-        // Set up lookup_color shader.
-        auto lookupColorShader = defineMdlShader_OmniPBR(
-            stage, materialPath, pxr::_tokens->lookup_color, nvidiaSupportDefinitions, pxr::_tokens->lookup_color);
-
-        const auto lookupColorTexInput =
-            lookupColorShader.CreateInput(pxr::_tokens->tex, pxr::SdfValueTypeNames->Asset);
-        lookupColorTexInput.Set(texturePath);
-        lookupColorShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Color3f);
-
-        const auto lookupColorCoordInput =
-            lookupColorShader.CreateInput(pxr::_tokens->coord, pxr::SdfValueTypeNames->Float2);
-        lookupColorCoordInput.ConnectToSource(translationOutput);
-
-        // Set uv wrapping to clamp. 0 = clamp. See
-        // https://github.com/NVIDIA/MDL-SDK/blob/master/src/mdl/compiler/stdmodule/tex.mdl#L36
-        lookupColorShader.CreateInput(pxr::_tokens->wrap_u, pxr::SdfValueTypeNames->Int).Set(0);
-        lookupColorShader.CreateInput(pxr::_tokens->wrap_v, pxr::SdfValueTypeNames->Int).Set(0);
-
-        const auto pbrShaderDiffuseColorInput =
-            pbrShader.CreateInput(pxr::_tokens->diffuse_color_constant, pxr::SdfValueTypeNames->Color3f);
-        pbrShaderDiffuseColorInput.ConnectToSource(lookupColorShader.GetOutput(pxr::_tokens->out));
-
-        // TODO: Eventually we need to actually take the material values from Cesium Native and apply them.
-        pbrShader.CreateInput(pxr::_tokens->reflection_roughness_constant, pxr::SdfValueTypeNames->Float).Set(0.1f);
-    };
-
-    if (hasRasterOverlay) {
-        setupDiffuseTexture(rasterOverlayPath);
-    } else if (pbrMetallicRoughness->baseColorTexture) {
-        const auto baseColorIndex = static_cast<std::size_t>(pbrMetallicRoughness->baseColorTexture->index);
-        const pxr::SdfAssetPath& texturePath = usdTexturePaths[baseColorIndex];
-        setupDiffuseTexture(texturePath);
-    } else {
-        pbrShader.CreateInput(pxr::_tokens->diffuse_color_constant, pxr::SdfValueTypeNames->Vector3f)
-            .Set(pxr::GfVec3f(
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[0]),
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[1]),
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[2])));
+    const CesiumGltf::MeshPrimitive& primitive,
+    const std::string& semantic,
+    uint64_t setIndex) {
+    auto uvAttribute = primitive.attributes.find(fmt::format("{}_{}", semantic, setIndex));
+    if (uvAttribute == primitive.attributes.end()) {
+        return CesiumGltf::AccessorView<glm::vec2>();
     }
 
-    materialUsd.CreateSurfaceOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
-    materialUsd.CreateDisplacementOutput(pxr::_tokens->mdl)
-        .ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
-    materialUsd.CreateVolumeOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
-
-    return materialUsd;
-}
-#else
-pxr::UsdShadeMaterial convertMaterialToUSD(
-    pxr::UsdStageRefPtr& stage,
-    const pxr::SdfPath& parentPath,
-    const std::vector<pxr::SdfAssetPath>& usdTexturePaths,
-    const bool hasRasterOverlay,
-    const pxr::SdfAssetPath& rasterOverlayPath,
-    const CesiumGltf::Material& material,
-    int32_t materialIdx) {
-    std::string materialName = fmt::format("material_{}", materialIdx);
-    pxr::SdfPath materialPath = parentPath.AppendChild(pxr::TfToken(materialName));
-    pxr::UsdShadeMaterial materialUsd = pxr::UsdShadeMaterial::Define(stage, materialPath);
-
-    const auto& pbrMetallicRoughness = material.pbrMetallicRoughness;
-    pxr::UsdShadeShader pbrShader =
-        pxr::UsdShadeShader::Define(stage, materialPath.AppendChild(pxr::TfToken("PBRShader")));
-    pbrShader.CreateIdAttr(pxr::VtValue(pxr::_tokens->UsdShaderId));
-    pbrShader.CreateInput(pxr::_tokens->roughness, pxr::SdfValueTypeNames->Float)
-        .Set(float(pbrMetallicRoughness->roughnessFactor));
-    pbrShader.CreateInput(pxr::_tokens->metallic, pxr::SdfValueTypeNames->Float)
-        .Set(float(pbrMetallicRoughness->metallicFactor));
-
-    std::vector<pxr::UsdShadeShader> stReaders(2);
-    std::vector<pxr::UsdShadeInput> stInputs(2);
-    for (std::size_t i = 0; i < 2; ++i) {
-        stReaders[i] =
-            pxr::UsdShadeShader::Define(stage, materialPath.AppendChild(pxr::TfToken(fmt::format("stReader_{}", i))));
-        stReaders[i].CreateIdAttr(pxr::VtValue(pxr::_tokens->PrimStShaderId));
-
-        stInputs[i] = materialUsd.CreateInput(pxr::_tokens->stPrimvarName, pxr::SdfValueTypeNames->Token);
-        stInputs[i].Set(pxr::VtValue(pxr::TfToken(fmt::format("st_{}", i))));
-
-        stReaders[i].CreateInput(pxr::_tokens->varname, pxr::SdfValueTypeNames->Token).ConnectToSource(stInputs[i]);
+    auto uvAccessor = model.getSafe<CesiumGltf::Accessor>(&model.accessors, uvAttribute->second);
+    if (!uvAccessor) {
+        return CesiumGltf::AccessorView<glm::vec2>();
     }
 
-    const auto setupDiffuseTexture = [&stage, &materialPath, &pbrShader, &stReaders](
-                                         const pxr::SdfAssetPath& texturePath, const size_t texcoord) {
-        const pxr::UsdShadeShader& stReader = stReaders[texcoord];
-        pxr::UsdShadeShader diffuseTextureSampler =
-            pxr::UsdShadeShader::Define(stage, materialPath.AppendChild(pxr::TfToken("DiffuseTexture")));
-        diffuseTextureSampler.CreateIdAttr(pxr::VtValue(pxr::_tokens->UsdUVTexture));
-        diffuseTextureSampler.CreateInput(pxr::_tokens->file, pxr::SdfValueTypeNames->Asset).Set(texturePath);
-        diffuseTextureSampler.CreateInput(pxr::_tokens->st, pxr::SdfValueTypeNames->Float2)
-            .ConnectToSource(stReader.ConnectableAPI(), pxr::_tokens->result);
-        diffuseTextureSampler.CreateInput(pxr::_tokens->wrapS, pxr::SdfValueTypeNames->Token).Set(pxr::_tokens->clamp);
-        diffuseTextureSampler.CreateInput(pxr::_tokens->wrapT, pxr::SdfValueTypeNames->Token).Set(pxr::_tokens->clamp);
-        diffuseTextureSampler.CreateOutput(pxr::_tokens->rgb, pxr::SdfValueTypeNames->Float3);
-        pbrShader.CreateInput(pxr::_tokens->diffuseColor, pxr::SdfValueTypeNames->Vector3f)
-            .ConnectToSource(diffuseTextureSampler.ConnectableAPI(), pxr::_tokens->rgb);
-    };
-
-    if (hasRasterOverlay) {
-        setupDiffuseTexture(rasterOverlayPath, 0);
-    } else if (pbrMetallicRoughness->baseColorTexture) {
-        auto baseColorIndex = static_cast<std::size_t>(pbrMetallicRoughness->baseColorTexture->index);
-        const pxr::SdfAssetPath& texturePath = usdTexturePaths[baseColorIndex];
-        auto baseColorTexCoord = static_cast<std::size_t>(pbrMetallicRoughness->baseColorTexture->texCoord);
-        setupDiffuseTexture(texturePath, baseColorTexCoord);
-    } else {
-        pbrShader.CreateInput(pxr::_tokens->diffuseColor, pxr::SdfValueTypeNames->Vector3f)
-            .Set(pxr::GfVec3f(
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[0]),
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[1]),
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[2])));
-    }
-
-    materialUsd.CreateSurfaceOutput().ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->surface);
-
-    return materialUsd;
+    return CesiumGltf::AccessorView<glm::vec2>(model, *uvAccessor);
 }
-#endif
 
-void convertMeshToUSD(
-    pxr::UsdStageRefPtr& stage,
-    const pxr::SdfPath& parentPath,
+usdrt::VtArray<usdrt::GfVec2f> getUVs(
     const CesiumGltf::Model& model,
-    const CesiumGltf::Mesh& mesh,
-    const std::vector<pxr::UsdShadeMaterial>& materials) {
-    for (std::size_t i = 0; i < mesh.primitives.size(); ++i) {
-        const CesiumGltf::MeshPrimitive& primitive = mesh.primitives[i];
-        pxr::VtArray<pxr::GfVec3f> positions = getPrimitivePositions(model, primitive);
-        pxr::VtArray<int> indices = getPrimitiveIndices(model, primitive, positions);
-        pxr::VtArray<pxr::GfVec3f> normals = getPrimitiveNormals(model, primitive, positions, indices);
-        pxr::VtArray<pxr::GfVec2f> st0 = getPrimitiveUVs(model, primitive, 0);
-        pxr::VtArray<pxr::GfVec2f> st1 = getPrimitiveUVs(model, primitive, 1);
-        pxr::VtArray<pxr::GfVec2f> rasterOverlaySt0 = getRasterOverlayUVs(model, primitive, 0);
-        pxr::VtArray<int> faceVertexCounts(indices.size() / 3, 3);
+    const CesiumGltf::MeshPrimitive& primitive,
+    const std::string& semantic,
+    uint64_t setIndex,
+    bool flipUVs) {
+    auto uvs = getUVsAccessorView(model, primitive, semantic, setIndex);
+    if (uvs.status() != CesiumGltf::AccessorViewStatus::Valid) {
+        return {};
+    }
 
-        if (positions.empty() || indices.empty() || normals.empty()) {
-            continue;
+    usdrt::VtArray<usdrt::GfVec2f> usdUVs;
+    usdUVs.reserve(static_cast<size_t>(uvs.size()));
+    for (auto i = 0; i < uvs.size(); ++i) {
+        glm::vec2 vert = uvs[i];
+
+        if (flipUVs) {
+            vert.y = 1.0f - vert.y;
         }
 
-        std::string meshName = fmt::format("mesh_primitive_{}", i);
-        pxr::UsdGeomMesh meshUsd = pxr::UsdGeomMesh::Define(stage, parentPath.AppendChild(pxr::TfToken(meshName)));
-        if (meshUsd) {
-            meshUsd.CreateSubdivisionSchemeAttr().Set(pxr::UsdGeomTokens->none);
-            meshUsd.CreateFaceVertexCountsAttr(pxr::VtValue::Take(faceVertexCounts));
-            meshUsd.CreatePointsAttr(pxr::VtValue::Take(positions));
-            meshUsd.CreateNormalsAttr(pxr::VtValue::Take(normals));
-            meshUsd.SetNormalsInterpolation(pxr::UsdGeomTokens->vertex);
-            meshUsd.CreateFaceVertexIndicesAttr(pxr::VtValue::Take(indices));
-            meshUsd.CreateDoubleSidedAttr().Set(true);
-
-            if (!rasterOverlaySt0.empty()) {
-                auto primVar = meshUsd.CreatePrimvar(pxr::_tokens->st0, pxr::SdfValueTypeNames->TexCoord2fArray);
-                primVar.SetInterpolation(pxr::_tokens->vertex);
-                primVar.Set(rasterOverlaySt0);
-            } else if (!st0.empty()) {
-                auto primVar = meshUsd.CreatePrimvar(pxr::_tokens->st0, pxr::SdfValueTypeNames->TexCoord2fArray);
-                primVar.SetInterpolation(pxr::_tokens->vertex);
-                primVar.Set(st0);
-            }
-
-            if (!st1.empty()) {
-                auto primVar = meshUsd.CreatePrimvar(pxr::_tokens->st_1, pxr::SdfValueTypeNames->TexCoord2fArray);
-                primVar.SetInterpolation(pxr::_tokens->vertex);
-                primVar.Set(st1);
-            }
-
-            if (primitive.material >= 0) {
-                pxr::UsdShadeMaterialBindingAPI usdMaterialBinding(meshUsd);
-
-                auto primitiveMaterial = static_cast<std::size_t>(primitive.material);
-                usdMaterialBinding.Bind(materials[primitiveMaterial]);
-            }
-        }
+        usdUVs.push_back(usdrt::GfVec2f(vert.x, vert.y));
     }
+
+    return usdUVs;
 }
 
-void convertNodeToUSD(
-    pxr::UsdStageRefPtr& stage,
-    const pxr::SdfPath& parentPath,
-    const CesiumGltf::Model& model,
-    const CesiumGltf::Node& node,
-    int32_t nodeIdx,
-    const std::vector<pxr::UsdShadeMaterial>& materials) {
-    std::string nodeName = fmt::format("node_{}", nodeIdx);
-    pxr::SdfPath nodePath = parentPath.AppendChild(pxr::TfToken(nodeName));
-    auto nodesSize = static_cast<int32_t>(model.nodes.size());
-    for (std::int32_t child : node.children) {
-        if (child >= 0 && child < nodesSize) {
-            convertNodeToUSD(stage, nodePath, model, model.nodes[static_cast<std::size_t>(child)], child, materials);
-        }
-    }
+usdrt::VtArray<usdrt::GfVec2f>
+getPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive, uint64_t setIndex) {
+    return getUVs(model, primitive, "TEXCOORD", setIndex, true);
+}
 
-    pxr::UsdGeomXform xform = pxr::UsdGeomXform::Define(stage, nodePath);
-    if (!xform) {
+void convertPrimitiveToUsd(
+    usdrt::UsdStageRefPtr& stage,
+    const std::string& parentName,
+    const glm::dmat4& parentMatrix,
+    const CesiumGltf::Model& model,
+    const CesiumGltf::MeshPrimitive& primitive,
+    const uint64_t primitiveIndex) {
+
+    // TODO
+    (void)parentMatrix;
+
+    usdrt::VtArray<usdrt::GfVec3f> positions = getPrimitivePositions(model, primitive);
+    usdrt::VtArray<int> indices = getPrimitiveIndices(model, primitive, positions);
+    usdrt::VtArray<usdrt::GfVec3f> normals = getPrimitiveNormals(model, primitive, positions, indices);
+    usdrt::VtArray<usdrt::GfVec2f> st0 = getPrimitiveUVs(model, primitive, 0);
+    usdrt::VtArray<usdrt::GfVec2f> st1 = getPrimitiveUVs(model, primitive, 1);
+
+    // TODO: check if it's ok to set this to the local extent ()
+    std::optional<usdrt::GfRange3d> worldExtent = getPrimitiveExtent(model, primitive);
+
+    if (positions.empty() || indices.empty() || normals.empty() || !worldExtent.has_value()) {
         return;
     }
 
-    pxr::GfMatrix4d currentTransform{1.0};
-    if (node.matrix.size() == 16 && !isIdentityMatrix(node.matrix)) {
-        currentTransform = pxr::GfMatrix4d(
-            node.matrix[0],
-            node.matrix[1],
-            node.matrix[2],
-            node.matrix[3],
-            node.matrix[4],
-            node.matrix[5],
-            node.matrix[6],
-            node.matrix[7],
-            node.matrix[8],
-            node.matrix[9],
-            node.matrix[10],
-            node.matrix[11],
-            node.matrix[12],
-            node.matrix[13],
-            node.matrix[14],
-            node.matrix[15]);
-    } else {
-        if (node.scale.size() == 3) {
-            currentTransform.SetScale(pxr::GfVec3d(node.scale[0], node.scale[1], node.scale[2]));
-        }
+    usdrt::VtArray<int> faceVertexCounts(indices.size() / 3);
+    std::fill(faceVertexCounts.begin(), faceVertexCounts.end(), 3);
 
-        if (node.rotation.size() == 4) {
-            currentTransform.SetRotateOnly(
-                pxr::GfQuatd(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]));
-        }
+    usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
 
-        if (node.translation.size() == 3) {
-            currentTransform.SetTranslateOnly(
-                pxr::GfVec3d(node.translation[0], node.translation[1], node.translation[2]));
-        }
-    }
+    std::string computedName = fmt::format("{}_mesh_primitive_{}", parentName, primitiveIndex);
 
-    xform.AddTransformOp().Set(currentTransform);
+    // TODO: precreate tokens
+    usdrt::TfToken meshToken("Mesh");
+    usdrt::TfToken faceVertexCountsToken("faceVertexCounts");
+    usdrt::TfToken faceVertexIndicesToken("faceVertexIndices");
+    usdrt::TfToken pointsToken("points");
+    usdrt::TfToken displayColorToken("primvars:displayColor");
+    usdrt::TfToken worldExtentToken("_worldExtent");
+    usdrt::TfToken constantToken("constant");
+    usdrt::TfToken primvarsToken("primvars");
+    usdrt::TfToken primvarInterpolationsToken("primvarInterpolations");
 
-    auto meshIndex = static_cast<std::size_t>(node.mesh);
-    if (meshIndex < model.meshes.size()) {
-        convertMeshToUSD(stage, nodePath, model, model.meshes[meshIndex], materials);
+    const usdrt::SdfPath primPath(fmt::format("/{}", computedName));
+    const usdrt::UsdPrim prim = stage->DefinePrim(primPath, meshToken);
+
+    // TODO: normals
+    prim.CreateAttribute(faceVertexCountsToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
+    prim.CreateAttribute(faceVertexIndicesToken, usdrt::SdfValueTypeNames->IntArray, false).Set(indices);
+    prim.CreateAttribute(pointsToken, usdrt::SdfValueTypeNames->Point3fArray, false).Set(positions);
+    prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
+    prim.CreateAttribute(worldExtentToken, usdrt::SdfValueTypeNames->Range3d, false).Set(worldExtent.value());
+
+    // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
+    // new TokenArray attributes, "primvars", and "primvarInterpolations", which are used internally by Fabric
+    // Scene Delegate. This is a workaround until UsdGeomMesh and UsdGeomPrimvarsAPI become available in USDRT.
+    const usdrt::VtArray<carb::flatcache::TokenC> primvars = {carb::flatcache::TokenC(displayColorToken)};
+    const usdrt::VtArray<carb::flatcache::TokenC> primvarInterp = {carb::flatcache::TokenC(constantToken)};
+
+    prim.CreateAttribute(primvarsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
+    prim.CreateAttribute(primvarInterpolationsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvarInterp);
+}
+
+void convertMeshToUsd(
+    usdrt::UsdStageRefPtr& stage,
+    const std::string& parentName,
+    const glm::dmat4& parentMatrix,
+    const CesiumGltf::Model& model,
+    const CesiumGltf::Mesh& mesh) {
+    for (auto i = 0; i < mesh.primitives.size(); i++) {
+        const auto& primitive = mesh.primitives[i];
+        convertPrimitiveToUsd(stage, parentName, parentMatrix, model, primitive, i);
     }
 }
 
-std::string getRasterOverlayTexturePath(const pxr::SdfPath& parentPath) {
-    return fmt::format("{}/raster.bmp", parentPath.GetString());
+void convertNodeToUsd(
+    usdrt::UsdStageRefPtr& stage,
+    const std::string& parentName,
+    const glm::dmat4& parentMatrix,
+    const CesiumGltf::Model& model,
+    const CesiumGltf::Node& node,
+    uint64_t nodeIndex) {
+    std::string computedName = fmt::format("{}_node_{}", parentName, nodeIndex);
+    glm::dmat4 computedMatrix = parentMatrix * getNodeMatrix(node);
+    for (int32_t child : node.children) {
+        if (child >= 0 && child < static_cast<int32_t>(model.nodes.size())) {
+            convertNodeToUsd(
+                stage,
+                computedName,
+                computedMatrix,
+                model,
+                model.nodes[static_cast<size_t>(child)],
+                static_cast<uint64_t>(child));
+        }
+    }
+
+    auto meshIndex = static_cast<uint64_t>(node.mesh);
+    if (meshIndex < static_cast<int32_t>(model.meshes.size())) {
+        convertMeshToUsd(stage, computedName, computedMatrix, model, model.meshes[meshIndex]);
+    }
 }
 
 } // namespace
 
-std::filesystem::path GltfToUSD::CesiumMemLocation{};
+void createUsdrtPrim(long stageId, const std::string& tilesetName, const CesiumGltf::Model& model) {
+    auto stage = getUsdrtStage(stageId);
 
-std::vector<std::byte> GltfToUSD::writeImageToBmp(const CesiumGltf::ImageCesium& img) {
-    std::vector<std::byte> writeData;
-    stbi_write_bmp_to_func(
-        [](void* context, void* data, int size) {
-            auto& write = *reinterpret_cast<std::vector<std::byte>*>(context);
-            std::byte* bdata = reinterpret_cast<std::byte*>(data);
-            write.insert(write.end(), bdata, bdata + size);
-        },
-        &writeData,
-        img.width,
-        img.height,
-        img.channels,
-        img.pixelData.data());
-
-    return writeData;
-}
-
-void GltfToUSD::insertRasterOverlayTexture(
-    const pxr::UsdPrim& parent,
-    std::vector<std::byte>&& image,
-    const glm::dvec2& translation,
-    const glm::dvec2& scale) {
-    std::string texturePath = getRasterOverlayTexturePath(parent.GetPath());
-
-    for (const auto& prim : parent.GetAllDescendants()) {
-        if (prim.IsA<pxr::UsdGeomMesh>()) {
-            const auto mesh = static_cast<pxr::UsdGeomMesh>(prim);
-
-            auto const scalePrimvar = mesh.CreatePrimvar(pxr::_tokens->scale_primvar, pxr::SdfValueTypeNames->Float2);
-            scalePrimvar.Set(pxr::GfVec2f(static_cast<float>(scale.x), static_cast<float>(scale.y)));
-
-            auto const translationPrimvar =
-                mesh.CreatePrimvar(pxr::_tokens->translation_primvar, pxr::SdfValueTypeNames->Float2);
-            translationPrimvar.Set(pxr::GfVec2f(static_cast<float>(translation.x), static_cast<float>(translation.y)));
-        }
-    }
-
-    auto inMemoryAsset = std::make_shared<pxr::InMemoryAsset>(std::move(image));
-    auto& ctx = pxr::InMemoryAssetContext::instance();
-    ctx.assets.insert({texturePath, std::move(inMemoryAsset)});
-}
-
-void GltfToUSD::removeRasterOverlayTexture(const pxr::UsdPrim& parent) {
-    std::string texturePath = getRasterOverlayTexturePath(parent.GetPath());
-
-    auto& ctx = pxr::InMemoryAssetContext::instance();
-    ctx.assets.erase(texturePath);
-}
-
-pxr::UsdPrim GltfToUSD::convertToUSD(
-    pxr::UsdStageRefPtr& stage,
-    const pxr::SdfPath& modelPath,
-    const CesiumGltf::Model& model,
-    const glm::dmat4& matrix) {
-    CESIUM_LOG_INFO("convert to USD: {}", modelPath.GetString());
-
-    std::vector<pxr::SdfAssetPath> textureUSDPaths;
-    textureUSDPaths.reserve(model.textures.size());
-    for (std::size_t i = 0; i < model.textures.size(); ++i) {
-        textureUSDPaths.emplace_back(convertTextureToUSD(modelPath, model, model.textures[i], int32_t(i)));
-    }
-
-    const auto hasRasterOverlay = hasRasterOverlayUVs(model, 0);
-    const auto rasterOverlayTexturePath = pxr::SdfAssetPath(makeAssetPath(getRasterOverlayTexturePath(modelPath)));
-
-    std::vector<pxr::UsdShadeMaterial> materialUSDs;
-    materialUSDs.reserve(model.materials.size());
-
-#ifdef CESIUM_OMNI_USE_OMNIPBR
-    for (std::size_t i = 0; i < model.materials.size(); ++i) {
-        materialUSDs.emplace_back(convertMaterialToUSD_OmniPBR(
-            stage,
-            modelPath,
-            textureUSDPaths,
-            hasRasterOverlay,
-            rasterOverlayTexturePath,
-            model.materials[i],
-            int32_t(i)));
-    }
-#else
-    for (std::size_t i = 0; i < model.materials.size(); ++i) {
-        materialUSDs.emplace_back(convertMaterialToUSD(
-            stage,
-            modelPath,
-            textureUSDPaths,
-            hasRasterOverlay,
-            rasterOverlayTexturePath,
-            model.materials[i],
-            int32_t(i)));
-    }
-#endif
-
-    pxr::UsdGeomXform xform = pxr::UsdGeomXform::Define(stage, modelPath);
-    if (!xform) {
-        return pxr::UsdPrim{};
-    }
-
-    pxr::GfMatrix4d currentTransform = pxr::GfMatrix4d(
-        matrix[0].x,
-        matrix[0].y,
-        matrix[0].z,
-        matrix[0].w,
-        matrix[1].x,
-        matrix[1].y,
-        matrix[1].z,
-        matrix[1].w,
-        matrix[2].x,
-        matrix[2].y,
-        matrix[2].z,
-        matrix[2].w,
-        matrix[3].x,
-        matrix[3].y,
-        matrix[3].z,
-        matrix[3].w);
-    xform.AddTransformOp().Set(currentTransform);
-
-    int32_t sceneIdx = model.scene;
+    const auto sceneIdx = model.scene;
     if (sceneIdx >= 0 && sceneIdx < static_cast<int32_t>(model.scenes.size())) {
-        const CesiumGltf::Scene& scene = model.scenes[std::size_t(sceneIdx)];
-        for (int32_t node : scene.nodes) {
-            if (node >= 0 && model.nodes.size()) {
-                convertNodeToUSD(stage, modelPath, model, model.nodes[std::size_t(node)], node, materialUSDs);
+        const auto& scene = model.scenes[static_cast<size_t>(sceneIdx)];
+        for (const auto node : scene.nodes) {
+            if (node >= 0 && node < static_cast<int32_t>(model.nodes.size())) {
+                convertNodeToUsd(
+                    stage,
+                    tilesetName,
+                    glm::dmat4(1.0),
+                    model,
+                    model.nodes[static_cast<size_t>(node)],
+                    static_cast<uint64_t>(node));
             }
         }
     } else if (!model.nodes.empty()) {
-        convertNodeToUSD(stage, modelPath, model, model.nodes[0], 0, materialUSDs);
+        for (auto i = 0; i < model.nodes.size(); i++) {
+            convertNodeToUsd(stage, tilesetName, glm::dmat4(1.0), model, model.nodes[i], i);
+        }
     } else {
         for (const auto& mesh : model.meshes) {
-            convertMeshToUSD(stage, modelPath, model, mesh, materialUSDs);
+            convertMeshToUsd(stage, tilesetName, glm::dmat4(1.0), model, mesh);
         }
     }
-
-    return xform.GetPrim();
 }
 } // namespace cesium::omniverse

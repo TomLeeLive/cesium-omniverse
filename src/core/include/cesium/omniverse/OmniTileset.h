@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -19,6 +21,7 @@ class OmniTileset {
     ~OmniTileset();
     void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates);
     void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken);
+    void setTransform(const glm::dmat4& globalToLocal);
 
   private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> _tileset;
