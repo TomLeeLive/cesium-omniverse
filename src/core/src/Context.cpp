@@ -18,12 +18,6 @@
 
 namespace cesium::omniverse {
 
-namespace {
-glm::dmat4 getLocalTransfom() {
-    const auto xform = pxr::UsdGeom.Xformable(prim)
-}
-} // namespace
-
 Context& Context::instance() {
     static Context context;
     return context;
@@ -110,17 +104,23 @@ void Context::addIonRasterOverlay(int tileset, const std::string& name, int64_t 
     }
 }
 
-void Context::updateFrame(const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height) {
+void Context::updateFrame(
+    long stageId,
+    const glm::dmat4& viewMatrix,
+    const glm::dmat4& projMatrix,
+    double width,
+    double height) {
     _viewStates.clear();
 
-    const auto& localToGlobal = _coordinateSystem->getLocalToGlobal();
+    const auto usdToEcef = getUsdToEcef(stageId, _origin);
+    const auto ecefToUsd = glm::inverse(usdToEcef);
     auto inverseView = glm::inverse(viewMatrix);
     auto omniCameraUp = glm::dvec3(inverseView[1]);
     auto omniCameraFwd = glm::dvec3(-inverseView[2]);
     auto omniCameraPosition = glm::dvec3(inverseView[3]);
-    auto cameraUp = glm::dvec3(localToGlobal * glm::dvec4(omniCameraUp, 0.0));
-    auto cameraFwd = glm::dvec3(localToGlobal * glm::dvec4(omniCameraFwd, 0.0));
-    auto cameraPosition = glm::dvec3(localToGlobal * glm::dvec4(omniCameraPosition, 1.0));
+    auto cameraUp = glm::dvec3(usdToEcef * glm::dvec4(omniCameraUp, 0.0));
+    auto cameraFwd = glm::dvec3(usdToEcef * glm::dvec4(omniCameraFwd, 0.0));
+    auto cameraPosition = glm::dvec3(usdToEcef * glm::dvec4(omniCameraPosition, 1.0));
 
     cameraUp = glm::normalize(cameraUp);
     cameraFwd = glm::normalize(cameraFwd);
@@ -135,19 +135,21 @@ void Context::updateFrame(const glm::dmat4& viewMatrix, const glm::dmat4& projMa
     _viewStates.emplace_back(viewState);
 
     for (const auto& [tilesetId, tileset] : _tilesets) {
+        const auto usdPath = tileset.getUsdPath();
+        const auto usdTransform = glmToGfMatrix(getUsdWorldTransform(tilesetUsdPath));
+        const auto ecefToUsd = ecefToUsd * tilesetUsdTransform;
+
+        if (usdToEcefTransform != tileset.getUsdToEcefTransform()) {
+            setUsdToEcefTransform(usdToEcefTransform);
+            // Update all prims
+        }
 
         tileset->updateFrame(_viewStates);
     }
 }
 
-void Context::setGeoreferenceOrigin(long stageId, const CesiumGeospatial::Cartographic& origin) {
-    _coordinateSystem->setGeoreferenceOrigin(stageId, origin);
-
-    for (const auto& [tilesetId, tileset] : _tilesets) {
-
-        // TODO: temporary
-        tileset->setTransform(_coordinateSystem->getGlobalToLocal());
-    }
+void Context::setGeoreferenceOrigin(const CesiumGeospatial::Cartographic& origin) {
+    _origin = origin;
 }
 
 int Context::getTilesetId() {

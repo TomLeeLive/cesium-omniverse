@@ -1,5 +1,4 @@
 #include "cesium/omniverse/CoordinateSystem.h"
-
 #include "cesium/omniverse/UsdUtil.h"
 
 #include <CesiumGeometry/AxisTransforms.h>
@@ -7,7 +6,6 @@
 #include <CesiumGeospatial/Transforms.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <pxr/usd/usd/stage.h>
-#include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/tokens.h>
 
 namespace cesium::omniverse {
@@ -19,8 +17,7 @@ glm::dmat4 getEastNorthUpToFixedFrame(const CesiumGeospatial::Cartographic& cart
 }
 
 glm::dmat4 getAxisConversionMatrix(long stageId) {
-    const auto stage = getUsdStage(stageId);
-    const auto upAxis = pxr::UsdGeomGetStageUpAxis(stage);
+    const auto upAxis = getUsdUpAxis(stageId);
 
     auto axisConversion = glm::dmat4(1.0);
     if (upAxis == pxr::UsdGeomTokens->y) {
@@ -31,31 +28,18 @@ glm::dmat4 getAxisConversionMatrix(long stageId) {
 }
 
 glm::dmat4 getUnitConversionMatrix(long stageId) {
-    const auto stage = getUsdStage(stageId);
-    const auto metersPerUnit = pxr::UsdGeomGetStageMetersPerUnit(stage);
+    const auto metersPerUnit = getUsdMetersPerUnit(stageId);
     return glm::scale(glm::dmat4(1.0), glm::dvec3(metersPerUnit));
 }
 
 } // namespace
 
-void CoordinateSystem::setGeoreferenceOrigin(long stageId, const CesiumGeospatial::Cartographic& origin) {
-    _localToGlobal =
-        getEastNorthUpToFixedFrame(origin) * getAxisConversionMatrix(stageId) * getUnitConversionMatrix(stageId);
-
-    _globalToLocal = glm::inverse(_localToGlobal);
+const glm::dmat4& CoordinateSystem::getLocalToGlobal(long stageId, const CesiumGeospatial::Cartographic& origin) {
+    return getEastNorthUpToFixedFrame(origin) * getAxisConversionMatrix(stageId) * getUnitConversionMatrix(stageId);
 }
 
-void CoordinateSystem::setLocalOrigin(long stageId) {
-    _localToGlobal = getAxisConversionMatrix(stageId) * getUnitConversionMatrix(stageId);
-    _globalToLocal = glm::inverse(_localToGlobal);
-}
-
-const glm::dmat4& CoordinateSystem::getGlobalToLocal() const {
-    return _globalToLocal;
-}
-
-const glm::dmat4& CoordinateSystem::getLocalToGlobal() const {
-    return _localToGlobal;
+const glm::dmat4& CoordinateSystem::getGlobalToLocal(long stageId, const CesiumGeospatial::Cartographic& origin) {
+    return glm::inverse(getLocalToGlobal(stageId, origin));
 }
 
 } // namespace cesium::omniverse

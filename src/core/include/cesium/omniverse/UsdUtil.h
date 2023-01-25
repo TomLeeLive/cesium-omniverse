@@ -19,5 +19,7 @@ usdrt::GfMatrix4d glmToUsdrtGfMatrix(const glm::dmat4& matrix);
 std::string printFabricStage(long stageId);
 std::string printUsdrtStage(long stageId);
 pxr::GfMatrix4d getUsdWorldTransform(pxr::SdfPath path);
+pxr::TfToken getUsdUpAxis(long stageId);
+double getUsdMetersPerUnit(long stageId);
 
 } // namespace cesium::omniverse

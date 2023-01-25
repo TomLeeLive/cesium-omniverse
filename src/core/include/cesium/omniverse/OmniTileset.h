@@ -1,11 +1,11 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <pxr/usd/usd/path.h>
 
 #include <memory>
 #include <string>
 #include <vector>
-#include <pxr/usd/usd/path.h>
 
 namespace Cesium3DTilesSelection {
 class Tileset;
@@ -20,13 +20,16 @@ class OmniTileset {
     OmniTileset(const std::string& name, long stageId, const std::string& url);
     OmniTileset(const std::string& name, long stageId, int64_t ionId, const std::string& ionToken);
     ~OmniTileset();
-    void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates);
-    void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken);
-    void setTransform(const glm::dmat4& globalToLocal);
+    void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates) const;
+    void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken) const;
+    pxr::SdfPath getUsdPath() const;
+    glm::dmat4 getUsdToEcefTransform() const;
+    void setUsdToEcefTransform();
 
   private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> _tileset;
     std::shared_ptr<RenderResourcesPreparer> _renderResourcesPreparer;
     pxr::SdfPath _usdPath;
+    glm::dmat4 _usdToEcefTransform;
 };
 } // namespace cesium::omniverse

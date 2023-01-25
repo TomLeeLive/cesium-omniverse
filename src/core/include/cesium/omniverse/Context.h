@@ -1,5 +1,6 @@
 #pragma once
 
+#include <CesiumGeospatial/Cartographic.h>
 #include <glm/glm.hpp>
 #include <spdlog/logger.h>
 
@@ -7,7 +8,6 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-
 namespace Cesium3DTilesSelection {
 class CreditSystem;
 class ViewState;
@@ -65,6 +65,8 @@ class Context {
     int _tilesetId;
     std::filesystem::path _cesiumMemLocation;
     std::filesystem::path _certificatePath;
+
+    CesiumGeospatial::Cartographic _georeferenceOrigin;
 };
 
 #define CESIUM_LOG_VERBOSE(message, ...) Context::instance().getLogger()->verbose(message, __VA_ARGS__);

@@ -2,6 +2,9 @@
 
 #include "cesium/omniverse/UsdUtil.h"
 
+#include <pxr/usd/usd/timeCode.h>
+#include <pxr/usd/usdGeom/metrics.h>
+#include <pxr/usd/usdGeom/xform.h>
 #include <pxr/usd/usdUtils/stageCache.h>
 #include <spdlog/fmt/fmt.h>
 
@@ -590,8 +593,23 @@ std::string printFabricStage(long stageId) {
     return stream.str();
 }
 
-pxr::GfMatrix4d getUsdWorldTransform(pxr::SdfPath path) {
-    
+pxr::GfMatrix4d getUsdWorldTransform(long stageId, pxr::SdfPath path) {
+    const auto& stage = getUsdStage(stageId);
+    const auto& prim = stage->GetPrimAtPath(path);
+    const auto& xform = pxr::UsdGeomXformable(prim);
+    const auto time = pxr::UsdTimeCode::Default();
+    return xform.ComputeLocalToWorldTransform(time);
+}
+
+pxr::TfToken getUsdUpAxis(long stageId) {
+    const auto stage = getUsdStage(stageId);
+    return pxr::UsdGeomGetStageUpAxis(stage);
+}
+
+double getUsdMetersPerUnit(long stageId) {
+    const auto stage = getUsdStage(stageId);
+    const auto metersPerUnit = pxr::UsdGeomGetStageMetersPerUnit(stage);
+    return metersPerUnit;
 }
 
 } // namespace cesium::omniverse
