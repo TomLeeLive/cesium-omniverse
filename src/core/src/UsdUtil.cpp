@@ -590,4 +590,8 @@ std::string printFabricStage(long stageId) {
     return stream.str();
 }
 
+pxr::GfMatrix4d getUsdWorldTransform(pxr::SdfPath path) {
+    
+}
+
 } // namespace cesium::omniverse

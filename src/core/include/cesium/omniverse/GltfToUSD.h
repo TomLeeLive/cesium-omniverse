@@ -9,8 +9,9 @@
 #include <usdrt/scenegraph/usd/sdf/path.h>
 
 namespace cesium::omniverse {
-void createUsdrtPrim(
+void createUsdrtPrims(
     long stageId,
-    const usdrt::SdfPath& primPath,
+    const std::string& tilesetName,
+    const glm::dmat4& tileTransform,
     const CesiumGltf::Model& model);
 }

@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <pxr/usd/usd/path.h>
 
 namespace Cesium3DTilesSelection {
 class Tileset;
@@ -26,5 +27,6 @@ class OmniTileset {
   private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> _tileset;
     std::shared_ptr<RenderResourcesPreparer> _renderResourcesPreparer;
+    pxr::SdfPath _usdPath;
 };
 } // namespace cesium::omniverse

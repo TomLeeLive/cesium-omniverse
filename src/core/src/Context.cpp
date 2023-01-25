@@ -18,6 +18,12 @@
 
 namespace cesium::omniverse {
 
+namespace {
+glm::dmat4 getLocalTransfom() {
+    const auto xform = pxr::UsdGeom.Xformable(prim)
+}
+} // namespace
+
 Context& Context::instance() {
     static Context context;
     return context;
@@ -129,6 +135,7 @@ void Context::updateFrame(const glm::dmat4& viewMatrix, const glm::dmat4& projMa
     _viewStates.emplace_back(viewState);
 
     for (const auto& [tilesetId, tileset] : _tilesets) {
+
         tileset->updateFrame(_viewStates);
     }
 }
@@ -137,6 +144,7 @@ void Context::setGeoreferenceOrigin(long stageId, const CesiumGeospatial::Cartog
     _coordinateSystem->setGeoreferenceOrigin(stageId, origin);
 
     for (const auto& [tilesetId, tileset] : _tilesets) {
+
         // TODO: temporary
         tileset->setTransform(_coordinateSystem->getGlobalToLocal());
     }

@@ -7,6 +7,7 @@
 #undef OPAQUE
 #endif
 
+#include <CesiumGeometry/AxisTransforms.h>
 #include <CesiumGltf/AccessorView.h>
 #include <CesiumGltf/Model.h>
 #include <CesiumGltfReader/GltfReader.h>
@@ -241,7 +242,7 @@ usdrt::VtArray<usdrt::GfVec3f> getPrimitiveNormals(
         }
     }
 
-    // Generate normals
+    // Generate smooth normals
     // TODO: confirm that VtArray elements are initialized to 0
     usdrt::VtArray<usdrt::GfVec3f> normalsUsd(positions.size());
     for (auto i = 0; i < indices.size(); i += 3) {
@@ -319,13 +320,10 @@ getPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive&
 void convertPrimitiveToUsd(
     usdrt::UsdStageRefPtr& stage,
     const std::string& parentName,
-    const glm::dmat4& parentMatrix,
+    const glm::dmat4& computedTransform,
     const CesiumGltf::Model& model,
     const CesiumGltf::MeshPrimitive& primitive,
     const uint64_t primitiveIndex) {
-
-    // TODO
-    (void)parentMatrix;
 
     usdrt::VtArray<usdrt::GfVec3f> positions = getPrimitivePositions(model, primitive);
     usdrt::VtArray<int> indices = getPrimitiveIndices(model, primitive, positions);
@@ -347,6 +345,11 @@ void convertPrimitiveToUsd(
 
     std::string computedName = fmt::format("{}_mesh_primitive_{}", parentName, primitiveIndex);
 
+    usdrt::GfMatrix4d localMatrix = glmToUsdrtGfMatrix(computedTransform);
+    usdrt::VtArray<double> worldPosition(3);
+    usdrt::GfQuatf worldOrientation;
+    usdrt::GfVec3d worldScale;
+
     // TODO: precreate tokens
     usdrt::TfToken meshToken("Mesh");
     usdrt::TfToken faceVertexCountsToken("faceVertexCounts");
@@ -357,6 +360,10 @@ void convertPrimitiveToUsd(
     usdrt::TfToken constantToken("constant");
     usdrt::TfToken primvarsToken("primvars");
     usdrt::TfToken primvarInterpolationsToken("primvarInterpolations");
+    usdrt::TfToken localMatrixToken("_localMatrix");
+    usdrt::TfToken worldPositionToken("_worldPosition");
+    usdrt::TfToken worldOrientationToken("_worldOrientation");
+    usdrt::TfToken worldScaleToken("_worldScale");
 
     const usdrt::SdfPath primPath(fmt::format("/{}", computedName));
     const usdrt::UsdPrim prim = stage->DefinePrim(primPath, meshToken);
@@ -368,6 +375,16 @@ void convertPrimitiveToUsd(
     prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
     prim.CreateAttribute(worldExtentToken, usdrt::SdfValueTypeNames->Range3d, false).Set(worldExtent.value());
 
+    // computedTransform represents the following sequence of transforms: glTF scene graph -> Y_UP_TO_Z_UP -> tile transform
+    // It doesn't take into account tileset transform, georeference origin, or USD coordinate system, a.k.a. anything that changes dynamically
+    // Here we save computedTransform in the _localTransform attribute so we can access it later
+    // Later we compute _worldPosition, _worldOrientation, _worldScale which override _localTransform.
+    // See http://omniverse-docs.s3-website-us-east-1.amazonaws.com/usdrt/5.0.0/docs/omnihydra_xforms.html
+    prim.CreateAttribute(localMatrixToken, usdrt::SdfValueTypeNames->Matrix4d, false).Set(localMatrix);
+    prim.CreateAttribute(worldPositionToken, usdrt::SdfValueTypeNames->Double3, false).Set(worldPosition);
+    prim.CreateAttribute(worldOrientationToken, usdrt::SdfValueTypeNames->Quatf, false).Set(worldOrientation);
+    prim.CreateAttribute(worldScaleToken, usdrt::SdfValueTypeNames->Vector3f, false).Set(worldScale);
+
     // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
     // new TokenArray attributes, "primvars", and "primvarInterpolations", which are used internally by Fabric
     // Scene Delegate. This is a workaround until UsdGeomMesh and UsdGeomPrimvarsAPI become available in USDRT.
@@ -376,35 +393,37 @@ void convertPrimitiveToUsd(
 
     prim.CreateAttribute(primvarsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
     prim.CreateAttribute(primvarInterpolationsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvarInterp);
+
+    // TODO: actually set world transform somewhere
 }
 
 void convertMeshToUsd(
     usdrt::UsdStageRefPtr& stage,
-    const std::string& parentName,
-    const glm::dmat4& parentMatrix,
+    const std::string& nodeName,
+    const glm::dmat4& computedTransform,
     const CesiumGltf::Model& model,
     const CesiumGltf::Mesh& mesh) {
     for (auto i = 0; i < mesh.primitives.size(); i++) {
         const auto& primitive = mesh.primitives[i];
-        convertPrimitiveToUsd(stage, parentName, parentMatrix, model, primitive, i);
+        convertPrimitiveToUsd(stage, nodeName, computedTransform, model, primitive, i);
     }
 }
 
 void convertNodeToUsd(
     usdrt::UsdStageRefPtr& stage,
     const std::string& parentName,
-    const glm::dmat4& parentMatrix,
+    const glm::dmat4& parentTransform,
     const CesiumGltf::Model& model,
     const CesiumGltf::Node& node,
     uint64_t nodeIndex) {
     std::string computedName = fmt::format("{}_node_{}", parentName, nodeIndex);
-    glm::dmat4 computedMatrix = parentMatrix * getNodeMatrix(node);
+    glm::dmat4 computedTransform = parentTransform * getNodeMatrix(node);
     for (int32_t child : node.children) {
         if (child >= 0 && child < static_cast<int32_t>(model.nodes.size())) {
             convertNodeToUsd(
                 stage,
                 computedName,
-                computedMatrix,
+                computedTransform,
                 model,
                 model.nodes[static_cast<size_t>(child)],
                 static_cast<uint64_t>(child));
@@ -413,14 +432,21 @@ void convertNodeToUsd(
 
     auto meshIndex = static_cast<uint64_t>(node.mesh);
     if (meshIndex < static_cast<int32_t>(model.meshes.size())) {
-        convertMeshToUsd(stage, computedName, computedMatrix, model, model.meshes[meshIndex]);
+        convertMeshToUsd(stage, computedName, computedTransform, model, model.meshes[meshIndex]);
     }
 }
 
 } // namespace
 
-void createUsdrtPrim(long stageId, const std::string& tilesetName, const CesiumGltf::Model& model) {
+void createUsdrtPrims(
+    long stageId,
+    const std::string& tilesetName,
+    const glm::dmat4& tileTransform,
+    const CesiumGltf::Model& model) {
     auto stage = getUsdrtStage(stageId);
+
+    // Converts glTF coordinate system (y-up) to 3D Tiles coordinate system (z-up)
+    const auto parentTransform = tileTransform * CesiumGeometry::AxisTransforms::Y_UP_TO_Z_UP;
 
     const auto sceneIdx = model.scene;
     if (sceneIdx >= 0 && sceneIdx < static_cast<int32_t>(model.scenes.size())) {
@@ -430,7 +456,7 @@ void createUsdrtPrim(long stageId, const std::string& tilesetName, const CesiumG
                 convertNodeToUsd(
                     stage,
                     tilesetName,
-                    glm::dmat4(1.0),
+                    parentTransform,
                     model,
                     model.nodes[static_cast<size_t>(node)],
                     static_cast<uint64_t>(node));
@@ -438,11 +464,11 @@ void createUsdrtPrim(long stageId, const std::string& tilesetName, const CesiumG
         }
     } else if (!model.nodes.empty()) {
         for (auto i = 0; i < model.nodes.size(); i++) {
-            convertNodeToUsd(stage, tilesetName, glm::dmat4(1.0), model, model.nodes[i], i);
+            convertNodeToUsd(stage, tilesetName, parentTransform, model, model.nodes[i], i);
         }
     } else {
         for (const auto& mesh : model.meshes) {
-            convertMeshToUsd(stage, tilesetName, glm::dmat4(1.0), model, mesh);
+            convertMeshToUsd(stage, tilesetName, parentTransform, model, mesh);
         }
     }
 }
