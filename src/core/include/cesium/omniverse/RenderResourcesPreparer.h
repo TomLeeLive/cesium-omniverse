@@ -56,5 +56,6 @@ class RenderResourcesPreparer : public Cesium3DTilesSelection::IPrepareRendererR
   private:
     long _stageId;
     const OmniTileset& _tileset;
+    uint64_t _tileCount = 0;
 };
 } // namespace cesium::omniverse

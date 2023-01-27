@@ -20,9 +20,7 @@ RenderResourcesPreparer::prepareInLoadThread(
     Cesium3DTilesSelection::TileLoadResult&& tileLoadResult,
     const glm::dmat4& transform,
     [[maybe_unused]] const std::any& rendererOptions) {
-    (void)transform;
-
-    CesiumGltf::Model* pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
+    const auto pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
     if (!pModel)
         return asyncSystem.createResolvedFuture(
             Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
@@ -30,6 +28,7 @@ RenderResourcesPreparer::prepareInLoadThread(
     createUsdrtPrims(
         _stageId,
         _tileset.getId(),
+        _tileCount++,
         computeEcefToUsdTransformForPrim(_stageId, Context::instance().getGeoreferenceOrigin(), _tileset.getUsdPath()),
         transform,
         _tileset.getUsdPath().GetName(),

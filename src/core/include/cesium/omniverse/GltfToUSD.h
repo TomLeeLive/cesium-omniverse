@@ -12,6 +12,7 @@ namespace cesium::omniverse {
 void createUsdrtPrims(
     long stageId,
     int tilesetId,
+    uint64_t tileId,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& tileTransform,
     const std::string& tilesetName,

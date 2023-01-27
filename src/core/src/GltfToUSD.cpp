@@ -471,6 +471,7 @@ void convertNodeToUsdRecursive(
 void createUsdrtPrims(
     long stageId,
     int tilesetId,
+    uint64_t tileId,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& tileTransform,
     const std::string& tilesetName,
@@ -479,6 +480,7 @@ void createUsdrtPrims(
 
     const auto gltfToEcefTransform = tileTransform * CesiumGeometry::AxisTransforms::Y_UP_TO_Z_UP;
     const auto parentTransform = glm::dmat4(1.0);
+    const auto parentName = fmt::format("{}_tile_{}", tilesetName, tileId);
 
     const auto sceneIndex = static_cast<uint64_t>(model.scene);
     if (sceneIndex >= 0 && sceneIndex < model.scenes.size()) {
@@ -489,7 +491,7 @@ void createUsdrtPrims(
                 convertNodeToUsdRecursive(
                     stage,
                     tilesetId,
-                    tilesetName,
+                    parentName,
                     ecefToUsdTransform,
                     gltfToEcefTransform,
                     parentTransform,
@@ -503,7 +505,7 @@ void createUsdrtPrims(
             convertNodeToUsdRecursive(
                 stage,
                 tilesetId,
-                tilesetName,
+                parentName,
                 ecefToUsdTransform,
                 gltfToEcefTransform,
                 parentTransform,
@@ -514,7 +516,7 @@ void createUsdrtPrims(
     } else {
         for (const auto& mesh : model.meshes) {
             convertMeshToUsd(
-                stage, tilesetId, tilesetName, ecefToUsdTransform, gltfToEcefTransform, parentTransform, model, mesh);
+                stage, tilesetId, parentName, ecefToUsdTransform, gltfToEcefTransform, parentTransform, model, mesh);
         }
     }
 }
