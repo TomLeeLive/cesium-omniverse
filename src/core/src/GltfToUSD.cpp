@@ -7,6 +7,7 @@
 #undef OPAQUE
 #endif
 
+#include <Cesium3DTilesSelection/GltfUtilities.h>
 #include <CesiumGeometry/AxisTransforms.h>
 #include <CesiumGltf/AccessorView.h>
 #include <CesiumGltf/Model.h>
@@ -325,20 +326,15 @@ getPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive&
     return getUVs(model, primitive, "TEXCOORD", setIndex, true);
 }
 
-std::mutex mutex;
-
 void convertPrimitiveToUsd(
     const usdrt::UsdStageRefPtr& stage,
     int tilesetId,
-    const std::string& nodeName,
+    const std::string& primName,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& gltfToEcefTransform,
     const glm::dmat4& nodeTransform,
     const CesiumGltf::Model& model,
-    const CesiumGltf::MeshPrimitive& primitive,
-    uint64_t primitiveIndex) {
-
-    std::scoped_lock<std::mutex> lock(mutex);
+    const CesiumGltf::MeshPrimitive& primitive) {
 
     usdrt::VtArray<usdrt::GfVec3f> positions = getPrimitivePositions(model, primitive);
     usdrt::VtArray<int> indices = getPrimitiveIndices(model, primitive, positions);
@@ -363,15 +359,9 @@ void convertPrimitiveToUsd(
 
     usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
 
-    std::string primName = fmt::format("{}_mesh_primitive_{}", nodeName, primitiveIndex);
-
     auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
     auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
     auto [worldPosition, worldOrientation, worldScale] = UsdUtil::glmToUsdrtMatrixDecomposed(localToUsdTransform);
-
-    (void)worldPosition;
-    (void)worldOrientation;
-    (void)worldScale;
 
     // TODO: precreate tokens
     usdrt::TfToken meshToken("Mesh");
@@ -427,65 +417,6 @@ void convertPrimitiveToUsd(
     prim.CreateAttribute(primvarsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
     prim.CreateAttribute(primvarInterpolationsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvarInterp);
 }
-
-void convertMeshToUsd(
-    const usdrt::UsdStageRefPtr& stage,
-    int tilesetId,
-    const std::string& nodeName,
-    const glm::dmat4& ecefToUsdTransform,
-    const glm::dmat4& gltfToEcefTransform,
-    const glm::dmat4& nodeTransform,
-    const CesiumGltf::Model& model,
-    const CesiumGltf::Mesh& mesh) {
-    for (auto i = 0; i < mesh.primitives.size(); i++) {
-        const auto& primitive = mesh.primitives[i];
-        convertPrimitiveToUsd(
-            stage, tilesetId, nodeName, ecefToUsdTransform, gltfToEcefTransform, nodeTransform, model, primitive, i);
-    }
-}
-
-void convertNodeToUsdRecursive(
-    const usdrt::UsdStageRefPtr& stage,
-    int tilesetId,
-    const std::string& parentName,
-    const glm::dmat4& ecefToUsdTransform,
-    const glm::dmat4& gltfToEcefTransform,
-    const glm::dmat4& parentTransform,
-    const CesiumGltf::Model& model,
-    const CesiumGltf::Node& node,
-    uint64_t nodeIndex) {
-    const auto nodeName = fmt::format("{}_node_{}", parentName, nodeIndex);
-    const auto nodeTransform = parentTransform * getNodeMatrix(node);
-    for (auto child : node.children) {
-        const auto childIndex = static_cast<uint64_t>(child);
-        if (childIndex >= 0 && childIndex < model.nodes.size()) {
-            convertNodeToUsdRecursive(
-                stage,
-                tilesetId,
-                nodeName,
-                ecefToUsdTransform,
-                gltfToEcefTransform,
-                nodeTransform,
-                model,
-                model.nodes[childIndex],
-                childIndex);
-        }
-    }
-
-    auto meshIndex = static_cast<uint64_t>(node.mesh);
-    if (meshIndex < model.meshes.size()) {
-        convertMeshToUsd(
-            stage,
-            tilesetId,
-            nodeName,
-            ecefToUsdTransform,
-            gltfToEcefTransform,
-            nodeTransform,
-            model,
-            model.meshes[meshIndex]);
-    }
-}
-
 } // namespace
 
 void createUsdrtPrims(
@@ -498,46 +429,22 @@ void createUsdrtPrims(
     const CesiumGltf::Model& model) {
     const auto stage = UsdUtil::getUsdrtStage(stageId);
 
-    const auto gltfToEcefTransform = tileTransform * CesiumGeometry::AxisTransforms::Y_UP_TO_Z_UP;
-    const auto parentTransform = glm::dmat4(1.0);
-    const auto parentName = fmt::format("{}_tile_{}", tilesetName, tileId);
+    auto gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyRtcCenter(model, tileTransform);
+    gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyGltfUpAxisTransform(model, gltfToEcefTransform);
 
-    const auto sceneIndex = static_cast<uint64_t>(model.scene);
-    if (sceneIndex >= 0 && sceneIndex < model.scenes.size()) {
-        const auto& scene = model.scenes[sceneIndex];
-        for (const auto node : scene.nodes) {
-            const auto nodeIndex = static_cast<uint64_t>(node);
-            if (nodeIndex >= 0 && nodeIndex < model.nodes.size()) {
-                convertNodeToUsdRecursive(
-                    stage,
-                    tilesetId,
-                    parentName,
-                    ecefToUsdTransform,
-                    gltfToEcefTransform,
-                    parentTransform,
-                    model,
-                    model.nodes[nodeIndex],
-                    nodeIndex);
-            }
-        }
-    } else if (!model.nodes.empty()) {
-        for (auto nodeIndex = 0; nodeIndex < model.nodes.size(); nodeIndex++) {
-            convertNodeToUsdRecursive(
-                stage,
-                tilesetId,
-                parentName,
-                ecefToUsdTransform,
-                gltfToEcefTransform,
-                parentTransform,
-                model,
-                model.nodes[nodeIndex],
-                nodeIndex);
-        }
-    } else {
-        for (const auto& mesh : model.meshes) {
-            convertMeshToUsd(
-                stage, tilesetId, parentName, ecefToUsdTransform, gltfToEcefTransform, parentTransform, model, mesh);
-        }
-    }
+    uint64_t primitiveId = 0;
+
+    model.forEachPrimitiveInScene(
+        -1,
+        [&stage, &tilesetId, &tilesetName, &tileId, &primitiveId, &ecefToUsdTransform, &gltfToEcefTransform](
+            const CesiumGltf::Model& gltf,
+            [[maybe_unused]] const CesiumGltf::Node& node,
+            [[maybe_unused]] const CesiumGltf::Mesh& mesh,
+            const CesiumGltf::MeshPrimitive& primitive,
+            const glm::dmat4& transform) {
+            const auto primName = fmt::format("{}_tile_{}_primitive_{}", tilesetName, tileId, primitiveId++);
+            convertPrimitiveToUsd(
+                stage, tilesetId, primName, ecefToUsdTransform, gltfToEcefTransform, transform, gltf, primitive);
+        });
 }
 } // namespace cesium::omniverse::GltfToUsd

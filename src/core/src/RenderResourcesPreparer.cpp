@@ -42,7 +42,7 @@ RenderResourcesPreparer::prepareInLoadThread(
             CoordinateSystemUtil::computeEcefToUsdTransformForPrim(
                 _stageId, Context::instance().getGeoreferenceOrigin(), _tileset.getUsdPath()),
             transform,
-            _tileset.getUsdPath().GetName(),
+            _tileset.getUsdPath().GetName(), // TODO: might need to be path
             *pModel);
 
         return asyncSystem.createResolvedFuture(
