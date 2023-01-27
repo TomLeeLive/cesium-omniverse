@@ -17,12 +17,13 @@ class RenderResourcesPreparer;
 
 class OmniTileset {
   public:
-    OmniTileset(long stageId, const pxr::SdfPath& usdPath, const std::string& url);
-    OmniTileset(long stageId, const pxr::SdfPath& usdPath, int64_t ionId, const std::string& ionToken);
+    OmniTileset(long stageId, int tilesetId, const pxr::SdfPath& usdPath, const std::string& url);
+    OmniTileset(long stageId, int tilesetId, const pxr::SdfPath& usdPath, int64_t ionId, const std::string& ionToken);
     ~OmniTileset();
     void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates);
     void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken);
     const pxr::SdfPath& getUsdPath() const;
+    const int getId() const;
     const glm::dmat4& getEcefToUsdTransform() const;
     void setEcefToUsdTransform(const glm::dmat4& ecefToUsdTransform);
 
@@ -31,5 +32,6 @@ class OmniTileset {
     std::shared_ptr<RenderResourcesPreparer> _renderResourcesPreparer;
     pxr::SdfPath _usdPath;
     glm::dmat4 _ecefToUsdTransform;
+    int _id;
 };
 } // namespace cesium::omniverse

@@ -8,9 +8,16 @@
 #include <Cesium3DTilesSelection/IPrepareRendererResources.h>
 
 namespace cesium::omniverse {
+
+class OmniTileset;
+
+struct RendererOptions {
+    long stageId;
+};
+
 class RenderResourcesPreparer : public Cesium3DTilesSelection::IPrepareRendererResources {
   public:
-    RenderResourcesPreparer();
+    RenderResourcesPreparer(long stageId, const OmniTileset& tileset);
 
     CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> prepareInLoadThread(
         const CesiumAsync::AsyncSystem& asyncSystem,
@@ -45,5 +52,9 @@ class RenderResourcesPreparer : public Cesium3DTilesSelection::IPrepareRendererR
         int32_t overlayTextureCoordinateID,
         const Cesium3DTilesSelection::RasterOverlayTile& rasterTile,
         void* pMainThreadRendererResources) noexcept override;
+
+  private:
+    long _stageId;
+    const OmniTileset& _tileset;
 };
 } // namespace cesium::omniverse

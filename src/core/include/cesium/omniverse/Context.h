@@ -6,7 +6,6 @@
 
 #include <filesystem>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 namespace Cesium3DTilesSelection {
 class CreditSystem;
@@ -43,10 +42,11 @@ class Context {
 
     int addTilesetUrl(long stageId, const std::string& url);
     int addTilesetIon(long stageId, int64_t ionId, const std::string& accessToken);
-    void removeTileset(int tileset);
-    void addIonRasterOverlay(int tileset, const std::string& name, int64_t ionId, const std::string& ionToken);
+    void removeTileset(int tilesetId);
+    void addIonRasterOverlay(int tilesetId, const std::string& name, int64_t ionId, const std::string& ionToken);
     void
     updateFrame(long stageId, const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height);
+    const CesiumGeospatial::Cartographic& getGeoreferenceOrigin() const;
     void setGeoreferenceOrigin(const CesiumGeospatial::Cartographic& origin);
 
   private:
@@ -58,7 +58,7 @@ class Context {
     std::shared_ptr<HttpAssetAccessor> _httpAssetAccessor;
     std::shared_ptr<Cesium3DTilesSelection::CreditSystem> _creditSystem;
     std::shared_ptr<spdlog::logger> _logger;
-    std::unordered_map<int, std::unique_ptr<OmniTileset>> _tilesets;
+    std::vector<std::unique_ptr<OmniTileset>> _tilesets;
     std::vector<Cesium3DTilesSelection::ViewState> _viewStates;
     int _tilesetIdCount = 0;
     std::filesystem::path _cesiumMemLocation;

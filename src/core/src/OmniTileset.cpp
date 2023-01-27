@@ -27,10 +27,10 @@ struct InitializeTilesetResult {
 };
 
 namespace {
-InitializeTilesetResult initializeTileset(long stageId, const pxr::SdfPath& usdPath) {
+InitializeTilesetResult initializeTileset(long stageId, const pxr::SdfPath& usdPath, const OmniTileset& tileset) {
     const auto stage = getUsdStage(stageId);
     pxr::UsdGeomXform::Define(stage, usdPath);
-    const auto renderResourcesPreparer = std::make_shared<RenderResourcesPreparer>();
+    const auto renderResourcesPreparer = std::make_shared<RenderResourcesPreparer>(stageId, tileset);
     auto& context = Context::instance();
     auto asyncSystem = CesiumAsync::AsyncSystem(context.getTaskProcessor());
     auto externals = Cesium3DTilesSelection::TilesetExternals{
@@ -63,18 +63,25 @@ InitializeTilesetResult initializeTileset(long stageId, const pxr::SdfPath& usdP
 }
 } // namespace
 
-OmniTileset::OmniTileset(long stageId, const pxr::SdfPath& usdPath, const std::string& url) {
-    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath);
+OmniTileset::OmniTileset(long stageId, int tilesetId, const pxr::SdfPath& usdPath, const std::string& url) {
+    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath, *this);
     _renderResourcesPreparer = renderResourcesPreparer;
     _tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(externals, url, options);
     _usdPath = usdPath;
+    _id = tilesetId;
 }
 
-OmniTileset::OmniTileset(long stageId, const pxr::SdfPath& usdPath, int64_t ionId, const std::string& ionToken) {
-    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath);
+OmniTileset::OmniTileset(
+    long stageId,
+    int tilesetId,
+    const pxr::SdfPath& usdPath,
+    int64_t ionId,
+    const std::string& ionToken) {
+    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath, *this);
     _renderResourcesPreparer = renderResourcesPreparer;
     _tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(externals, ionId, ionToken, options);
     _usdPath = usdPath;
+    _id = tilesetId;
 }
 
 OmniTileset::~OmniTileset() {}
@@ -127,6 +134,10 @@ void OmniTileset::addIonRasterOverlay(const std::string& name, int64_t ionId, co
 
 const pxr::SdfPath& OmniTileset::getUsdPath() const {
     return _usdPath;
+}
+
+const int OmniTileset::getId() const {
+    return _id;
 }
 
 const glm::dmat4& OmniTileset::getEcefToUsdTransform() const {

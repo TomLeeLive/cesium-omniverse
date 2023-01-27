@@ -57,6 +57,8 @@ void Context::destroy() {
 
     _tilesetIdCount = 0;
     _tilesets.clear();
+
+    // TODO: actually remove from USD/Fabric
 }
 
 std::shared_ptr<TaskProcessor> Context::getTaskProcessor() {
@@ -79,7 +81,7 @@ int Context::addTilesetUrl(long stageId, const std::string& url) {
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_{}", tilesetId);
     const auto tilesetUsdPath = getChildOfRootPathUnique(stageId, tilesetName);
-    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(stageId, tilesetUsdPath, url)});
+    _tilesets.emplace_back(std::make_unique<OmniTileset>(stageId, tilesetId, tilesetUsdPath, url));
     return tilesetId;
 }
 
@@ -87,19 +89,27 @@ int Context::addTilesetIon(long stageId, int64_t ionId, const std::string& ionTo
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_ion_{}", ionId);
     const auto tilesetUsdPath = getChildOfRootPathUnique(stageId, tilesetName);
-    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(stageId, tilesetUsdPath, ionId, ionToken)});
+    _tilesets.emplace_back(std::make_unique<OmniTileset>(stageId, tilesetId, tilesetUsdPath, ionId, ionToken));
     return tilesetId;
 }
 
-void Context::removeTileset(int tileset) {
+void Context::removeTileset(int tilesetId) {
+    auto removedIter = std::remove_if(_tilesets.begin(), _tilesets.end(), [&tilesetId](const auto& tileset) {
+        return tileset->getId() == tilesetId;
+    });
+
+    _tilesets.erase(removedIter, _tilesets.end());
+
     // TODO: actually remove from USD/Fabric
-    _tilesets.erase(tileset);
 }
 
-void Context::addIonRasterOverlay(int tileset, const std::string& name, int64_t ionId, const std::string& ionToken) {
-    const auto iter = _tilesets.find(tileset);
+void Context::addIonRasterOverlay(int tilesetId, const std::string& name, int64_t ionId, const std::string& ionToken) {
+    auto iter = std::find_if(_tilesets.begin(), _tilesets.end(), [&tilesetId](const auto& tileset) {
+        return tileset->getId() == tilesetId;
+    });
+
     if (iter != _tilesets.end()) {
-        iter->second->addIonRasterOverlay(name, ionId, ionToken);
+        iter->get()->addIonRasterOverlay(name, ionId, ionToken);
     }
 }
 
@@ -113,15 +123,19 @@ void Context::updateFrame(
     _viewStates.clear();
     _viewStates.emplace_back(viewState);
 
-    for (const auto& [tilesetId, tileset] : _tilesets) {
+    for (const auto& tileset : _tilesets) {
         const auto transform = computeEcefToUsdTransformForPrim(stageId, _georeferenceOrigin, tileset->getUsdPath());
         if (transform != tileset->getEcefToUsdTransform()) {
             tileset->setEcefToUsdTransform(transform);
-            updatePrimTransforms(stageId, tilesetId, transform);
+            updatePrimTransforms(stageId, tileset->getId(), transform);
         }
 
         tileset->updateFrame(_viewStates);
     }
+}
+
+const CesiumGeospatial::Cartographic& Context::getGeoreferenceOrigin() const {
+    return _georeferenceOrigin;
 }
 
 void Context::setGeoreferenceOrigin(const CesiumGeospatial::Cartographic& origin) {

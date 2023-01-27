@@ -57,19 +57,19 @@ class ICesiumOmniverseInterface {
     /**
      * @brief Removes a tileset from the scene.
      *
-     * @param tileset The tileset id. If there's no tileset with this id nothing happens.
+     * @param tilesetId The tileset id. If there's no tileset with this id nothing happens.
      */
-    virtual void removeTileset(int tileset) noexcept = 0;
+    virtual void removeTileset(int tilesetId) noexcept = 0;
 
     /**
      * @brief Adds a raster overlay from ion.
      *
-     * @param tileset The tileset id
+     * @param tilesetId The tileset id
      * @param name The user-given name of this overlay layer
      * @param ionId The asset ID
      * @param ionToken The access token
      */
-    virtual void addIonRasterOverlay(int tileset, const char* name, int64_t ionId, const char* ionToken) noexcept = 0;
+    virtual void addIonRasterOverlay(int tilesetId, const char* name, int64_t ionId, const char* ionToken) noexcept = 0;
 
     /**
      * @brief Updates all tilesets this frame.

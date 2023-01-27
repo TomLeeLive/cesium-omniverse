@@ -51,12 +51,12 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         return Context::instance().addTilesetIon(stageId, ionId, ionToken);
     }
 
-    void removeTileset(int tileset) noexcept override {
-        Context::instance().removeTileset(tileset);
+    void removeTileset(int tilesetId) noexcept override {
+        Context::instance().removeTileset(tilesetId);
     }
 
-    void addIonRasterOverlay(int tileset, const char* name, int64_t ionId, const char* ionToken) noexcept override {
-        Context::instance().addIonRasterOverlay(tileset, name, ionId, ionToken);
+    void addIonRasterOverlay(int tilesetId, const char* name, int64_t ionId, const char* ionToken) noexcept override {
+        Context::instance().addIonRasterOverlay(tilesetId, name, ionId, ionToken);
     }
 
     void updateFrame(
