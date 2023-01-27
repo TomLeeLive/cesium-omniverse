@@ -118,6 +118,21 @@ class ICesiumOmniverseInterface {
     virtual void addCubeFabric(long stageId) noexcept = 0;
 
     /**
+     * @brief Show the USDRT cube.
+     *
+     * @param stageId The USD stage id
+     */
+    virtual void showCubeUsdrt(long stageId) noexcept = 0;
+
+    /**
+     * @brief Hide the USDRT cube.
+     *
+     * @param stageId The USD stage id
+     */
+    virtual void hideCubeUsdrt(long stageId) noexcept = 0;
+
+
+    /**
      * @brief Remove the USDRT cube.
      *
      * @param stageId The USD stage id

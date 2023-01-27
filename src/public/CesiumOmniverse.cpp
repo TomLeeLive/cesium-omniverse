@@ -234,6 +234,28 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         worldExtent->SetMax(usdrt::GfVec3d(1.0, 1.0, 1.0));
     }
 
+    void showCubeUsdrt(long stageId) noexcept override {
+        auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
+
+        carb::flatcache::Path primPath("/example_prim_usdrt");
+        carb::flatcache::Token visibilityToken("visibility");
+        carb::flatcache::Token defaultToken("default");
+
+        auto token = stageInProgress.getAttributeWr<carb::flatcache::TokenC>(primPath, visibilityToken);
+        *token = carb::flatcache::TokenC(defaultToken);
+    }
+
+    void hideCubeUsdrt(long stageId) noexcept override {
+        auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
+
+        carb::flatcache::Path primPath("/example_prim_usdrt");
+        carb::flatcache::Token visibilityToken("visibility");
+        carb::flatcache::Token invisibleToken("invisible");
+
+        auto token = stageInProgress.getAttributeWr<carb::flatcache::TokenC>(primPath, visibilityToken);
+        *token = carb::flatcache::TokenC(invisibleToken);
+    }
+
     void removeCubeUsdrt(long stageId) noexcept override {
         const auto stage = UsdUtil::getUsdrtStage(stageId);
         const auto primPath = usdrt::SdfPath("/example_prim_usdrt");

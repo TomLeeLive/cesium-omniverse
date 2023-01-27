@@ -238,6 +238,14 @@ class CesiumOmniverseDebugWindow(ui.Window):
             stage_id = omni.usd.get_context().get_stage_id()
             self._cesium_omniverse_interface.removeCubeUsdrt(stage_id)
 
+        def show_cube_usdrt():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.showCubeUsdrt(stage_id)
+
+        def hide_cube_usdrt():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.hideCubeUsdrt(stage_id)
+
         def print_usdrt_stage():
             stage_id = omni.usd.get_context().get_stage_id()
             usdrt_stage = self._cesium_omniverse_interface.printUsdrtStage(stage_id)
@@ -262,6 +270,8 @@ class CesiumOmniverseDebugWindow(ui.Window):
                 ui.Button("Add Cube USD", clicked_fn=lambda: add_cube_usd())
                 ui.Button("Add Cube Fabric", clicked_fn=lambda: add_cube_fabric())
                 ui.Button("Remove Cube USDRT", clicked_fn=lambda: remove_cube_usdrt())
+                ui.Button("Show Cube USDRT", clicked_fn=lambda: show_cube_usdrt())
+                ui.Button("Hide Cube USDRT", clicked_fn=lambda: hide_cube_usdrt())
                 ui.Button("Print USDRT stage", clicked_fn=lambda: print_usdrt_stage())
                 ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
             with ui.VStack():

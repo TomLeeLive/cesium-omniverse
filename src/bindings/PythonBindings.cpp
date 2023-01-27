@@ -38,6 +38,8 @@ PYBIND11_MODULE(CesiumOmniversePythonBindings, m) {
         .def("addCubeUsdrt", &ICesiumOmniverseInterface::addCubeUsdrt)
         .def("addCubeUsd", &ICesiumOmniverseInterface::addCubeUsd)
         .def("addCubeFabric", &ICesiumOmniverseInterface::addCubeFabric)
+        .def("showCubeUsdrt", &ICesiumOmniverseInterface::showCubeUsdrt)
+        .def("hideCubeUsdrt", &ICesiumOmniverseInterface::hideCubeUsdrt)
         .def("removeCubeUsdrt", &ICesiumOmniverseInterface::removeCubeUsdrt)
         .def("printUsdrtStage", &ICesiumOmniverseInterface::printUsdrtStage)
         .def("printFabricStage", &ICesiumOmniverseInterface::printFabricStage);

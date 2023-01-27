@@ -222,6 +222,20 @@ void updatePrimVisibility(long stageId, int tilesetId, const glm::dmat4& ecefToU
 }
 
 namespace {
+
+class TokenWrapper {
+  private:
+    carb::flatcache::TokenC tokenC;
+
+  public:
+    friend std::ostream& operator<<(std::ostream& os, const TokenWrapper& tokenWrapper);
+};
+
+std::ostream& operator<<(std::ostream& os, const TokenWrapper& tokenWrapper) {
+    os << carb::flatcache::Token(tokenWrapper.tokenC).getString();
+    return os;
+}
+
 template <typename T>
 std::string printAttributeValuePtr(const T* const values, const uint64_t elementCount, const uint64_t componentCount) {
     std::stringstream stream;
@@ -484,6 +498,16 @@ std::string printFabricStage(long stageId) {
                     // but we don't really care at the moment since we're always interfacing with Fabric via USDRT.
                     if (arrayDepth == 0) {
                         switch (baseType) {
+                            case carb::flatcache::BaseDataType::eToken: {
+                                switch (componentCount) {
+                                    case 1: {
+                                        attributeValue =
+                                            printAttributeValue<false, TokenWrapper, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
                             case carb::flatcache::BaseDataType::eBool: {
                                 switch (componentCount) {
                                     case 1: {
@@ -608,6 +632,16 @@ std::string printFabricStage(long stageId) {
                         }
                     } else if (arrayDepth == 1) {
                         switch (baseType) {
+                            case carb::flatcache::BaseDataType::eToken: {
+                                switch (componentCount) {
+                                    case 1: {
+                                        attributeValue =
+                                            printAttributeValue<true, TokenWrapper, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
                             case carb::flatcache::BaseDataType::eBool: {
                                 switch (componentCount) {
                                     case 1: {
@@ -737,7 +771,10 @@ std::string printFabricStage(long stageId) {
 
                     stream << fmt::format("{}Attribute: {}\n", attributeSpaces, attributeNameString);
                     stream << fmt::format("{}Type: {}\n", attributeInfoSpaces, attributeTypeString);
-                    stream << fmt::format("{}Value: {}\n", attributeInfoSpaces, attributeValue);
+
+                    if (baseType != carb::flatcache::BaseDataType::eTag) {
+                        stream << fmt::format("{}Value: {}\n", attributeInfoSpaces, attributeValue);
+                    }
                 }
             }
         }
