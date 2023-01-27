@@ -194,10 +194,12 @@ class CesiumOmniverseDebugWindow(ui.Window):
             """Adds the Bing Maps & Cesium Terrain to the stage."""
 
             stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.addCesiumData(stage_id, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMjRhYzI0Yi1kNWEwLTQ4ZWYtYjdmZC1hY2JmYWIzYmFiMGUiLCJpZCI6NDQsImlhdCI6MTY2NzQ4OTg0N30.du0tvWptgLWsvM1Gnbv3Zw_pDAOILg1Wr6s2sgK-qlM")
+            self._cesium_omniverse_interface.addCesiumData(
+                stage_id,
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyMjRhYzI0Yi1kNWEwLTQ4ZWYtYjdmZC1hY2JmYWIzYmFiMGUiLCJpZCI6NDQsImlhdCI6MTY2NzQ4OTg0N30.du0tvWptgLWsvM1Gnbv3Zw_pDAOILg1Wr6s2sgK-qlM",
+            )
 
             asyncio.ensure_future(do_add_bing_maps_using_stage_token())
-
 
         def create_tileset(tileset=Tileset.CESIUM_WORLD_TERRAIN):
             """Creates the desired tileset on the stage.
