@@ -107,6 +107,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         prim.CreateAttribute(usdrt::TfToken("points"), usdrt::SdfValueTypeNames->Point3fArray, false).Set(points);
         prim.CreateAttribute(usdrt::TfToken("primvars:displayColor"), usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
         prim.CreateAttribute(usdrt::TfToken("_worldExtent"), usdrt::SdfValueTypeNames->Range3d, false).Set(range);
+        prim.CreateAttribute(usdrt::TfToken("visibility"), usdrt::SdfValueTypeNames->Bool, false).Set(true);
 
         // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
         // new TokenArray attributes, "primvars", and "primvarInterpolations", which are used internally by Fabric
@@ -239,10 +240,9 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
         carb::flatcache::Path primPath("/example_prim_usdrt");
         carb::flatcache::Token visibilityToken("visibility");
-        carb::flatcache::Token defaultToken("default");
 
-        auto token = stageInProgress.getAttributeWr<carb::flatcache::TokenC>(primPath, visibilityToken);
-        *token = carb::flatcache::TokenC(defaultToken);
+        auto token = stageInProgress.getAttributeWr<bool>(primPath, visibilityToken);
+        *token = true;
     }
 
     void hideCubeUsdrt(long stageId) noexcept override {
@@ -250,10 +250,9 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
         carb::flatcache::Path primPath("/example_prim_usdrt");
         carb::flatcache::Token visibilityToken("visibility");
-        carb::flatcache::Token invisibleToken("invisible");
 
-        auto token = stageInProgress.getAttributeWr<carb::flatcache::TokenC>(primPath, visibilityToken);
-        *token = carb::flatcache::TokenC(invisibleToken);
+        auto token = stageInProgress.getAttributeWr<bool>(primPath, visibilityToken);
+        *token = false;
     }
 
     void removeCubeUsdrt(long stageId) noexcept override {
