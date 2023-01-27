@@ -16,6 +16,7 @@
 #include <spdlog/fmt/fmt.h>
 #include <usdrt/gf/range.h>
 #include <usdrt/gf/vec.h>
+#include <usdrt/scenegraph/usd/rt/xformable.h>
 #include <usdrt/scenegraph/usd/sdf/types.h>
 
 #include <numeric>
@@ -100,7 +101,7 @@ getPrimitivePositions(const CesiumGltf::Model& model, const CesiumGltf::MeshPrim
 
     // TODO: a memcpy should work just as well
     usdrt::VtArray<usdrt::GfVec3f> usdPositions;
-    usdPositions.reserve(static_cast<std::size_t>(positions.size()));
+    usdPositions.reserve(static_cast<uint64_t>(positions.size()));
     for (auto i = 0; i < positions.size(); i++) {
         const auto& position = positions[i];
         usdPositions.push_back(usdrt::GfVec3f(position.x, position.y, position.z));
@@ -145,7 +146,7 @@ usdrt::VtArray<int> createIndices(
         }
 
         usdrt::VtArray<int> indices;
-        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size()));
+        indices.reserve(static_cast<uint64_t>(indicesAccessorView.size()));
         for (auto i = 0; i < indicesAccessorView.size(); i++) {
             indices.push_back(static_cast<int>(indicesAccessorView[i]));
         }
@@ -159,7 +160,7 @@ usdrt::VtArray<int> createIndices(
         }
 
         usdrt::VtArray<int> indices;
-        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size() - 2) * 3);
+        indices.reserve(static_cast<uint64_t>(indicesAccessorView.size() - 2) * 3);
         for (auto i = 0; i < indicesAccessorView.size() - 2; i++) {
             if (i % 2) {
                 indices.push_back(static_cast<int>(indicesAccessorView[i]));
@@ -181,7 +182,7 @@ usdrt::VtArray<int> createIndices(
         }
 
         usdrt::VtArray<int> indices;
-        indices.reserve(static_cast<std::size_t>(indicesAccessorView.size() - 2) * 3);
+        indices.reserve(static_cast<uint64_t>(indicesAccessorView.size() - 2) * 3);
         for (auto i = 0; i < indicesAccessorView.size() - 2; i++) {
             indices.push_back(static_cast<int>(indicesAccessorView[0]));
             indices.push_back(static_cast<int>(indicesAccessorView[i + 1]));
@@ -232,7 +233,7 @@ usdrt::VtArray<usdrt::GfVec3f> getPrimitiveNormals(
         auto normalsView = CesiumGltf::AccessorView<glm::vec3>(model, normalAttribute->second);
         if (normalsView.status() == CesiumGltf::AccessorViewStatus::Valid) {
             usdrt::VtArray<usdrt::GfVec3f> normalsUsd;
-            normalsUsd.reserve(static_cast<std::size_t>(normalsView.size()));
+            normalsUsd.reserve(static_cast<uint64_t>(normalsView.size()));
             for (auto i = 0; i < normalsView.size(); ++i) {
                 const glm::vec3& n = normalsView[i];
                 normalsUsd.push_back(usdrt::GfVec3f(n.x, n.y, n.z));
@@ -298,7 +299,7 @@ usdrt::VtArray<usdrt::GfVec2f> getUVs(
     }
 
     usdrt::VtArray<usdrt::GfVec2f> usdUVs;
-    usdUVs.reserve(static_cast<size_t>(uvs.size()));
+    usdUVs.reserve(static_cast<uint64_t>(uvs.size()));
     for (auto i = 0; i < uvs.size(); ++i) {
         glm::vec2 vert = uvs[i];
 
@@ -318,12 +319,15 @@ getPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive&
 }
 
 void convertPrimitiveToUsd(
-    usdrt::UsdStageRefPtr& stage,
-    const std::string& parentName,
-    const glm::dmat4& computedTransform,
+    const usdrt::UsdStageRefPtr& stage,
+    int tilesetId,
+    const std::string& nodeName,
+    const glm::dmat4& ecefToUsdTransform,
+    const glm::dmat4& gltfToEcefTransform,
+    const glm::dmat4& nodeTransform,
     const CesiumGltf::Model& model,
     const CesiumGltf::MeshPrimitive& primitive,
-    const uint64_t primitiveIndex) {
+    uint64_t primitiveIndex) {
 
     usdrt::VtArray<usdrt::GfVec3f> positions = getPrimitivePositions(model, primitive);
     usdrt::VtArray<int> indices = getPrimitiveIndices(model, primitive, positions);
@@ -331,7 +335,7 @@ void convertPrimitiveToUsd(
     usdrt::VtArray<usdrt::GfVec2f> st0 = getPrimitiveUVs(model, primitive, 0);
     usdrt::VtArray<usdrt::GfVec2f> st1 = getPrimitiveUVs(model, primitive, 1);
 
-    // TODO: check if it's ok to set this to the local extent ()
+    // TODO: does world extent actually have to be the world extent after transformations have been applied?
     std::optional<usdrt::GfRange3d> worldExtent = getPrimitiveExtent(model, primitive);
 
     if (positions.empty() || indices.empty() || normals.empty() || !worldExtent.has_value()) {
@@ -343,12 +347,11 @@ void convertPrimitiveToUsd(
 
     usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
 
-    std::string computedName = fmt::format("{}_mesh_primitive_{}", parentName, primitiveIndex);
+    std::string primName = fmt::format("{}_mesh_primitive_{}", nodeName, primitiveIndex);
 
-    usdrt::GfMatrix4d localMatrix = glmToUsdrtGfMatrix(computedTransform);
-    usdrt::VtArray<double> worldPosition(3);
-    usdrt::GfQuatf worldOrientation;
-    usdrt::GfVec3d worldScale;
+    auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
+    auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
+    auto [worldPosition, worldOrientation, worldScale] = glmToUsdrtMatrixDecomposed(localToUsdTransform);
 
     // TODO: precreate tokens
     usdrt::TfToken meshToken("Mesh");
@@ -360,13 +363,32 @@ void convertPrimitiveToUsd(
     usdrt::TfToken constantToken("constant");
     usdrt::TfToken primvarsToken("primvars");
     usdrt::TfToken primvarInterpolationsToken("primvarInterpolations");
-    usdrt::TfToken localMatrixToken("_localMatrix");
-    usdrt::TfToken worldPositionToken("_worldPosition");
-    usdrt::TfToken worldOrientationToken("_worldOrientation");
-    usdrt::TfToken worldScaleToken("_worldScale");
+    usdrt::TfToken tilesetIdToken("_tilesetId");
 
-    const usdrt::SdfPath primPath(fmt::format("/{}", computedName));
+    const usdrt::SdfPath primPath(fmt::format("/{}", primName));
     const usdrt::UsdPrim prim = stage->DefinePrim(primPath, meshToken);
+
+    // localToUsdTransform = transform glTF local position to USD world position
+    //
+    // 1. Start with glTF local position
+    // 2. Apply glTF scene graph
+    // 3. Apply y-up to z-up to bring into 3D Tiles coordinate system
+    // 4. Apply tile transform. Now positions are in ECEF coordinates.
+    // 5. Apply Fixed Frame to ENU based on the georeference origin
+    // 6. Apply USD axis conversion
+    // 7. Apply USD unit conversion
+    // 8. Apply Tileset prim transform
+    // 9. End with USD world position
+    //
+    // Here we save localToEcefTransform in the _localMatrix attribute so we can access it later if anything changes
+    // after step 4 and we need to recompute _worldPosition, _worldOrientation, _worldScale
+    // Note that _worldPosition, _worldOrientation, _worldScale override _localMatrix
+    // See http://omniverse-docs.s3-website-us-east-1.amazonaws.com/usdrt/5.0.0/docs/omnihydra_xforms.html
+    const auto xform = usdrt::RtXformable(prim);
+    xform.CreateLocalMatrixAttr(glmToUsdrtMatrix(localToEcefTransform));
+    xform.CreateWorldPositionAttr(worldPosition);
+    xform.CreateWorldOrientationAttr(worldOrientation);
+    xform.CreateWorldScaleAttr(worldScale);
 
     // TODO: normals
     prim.CreateAttribute(faceVertexCountsToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
@@ -374,16 +396,7 @@ void convertPrimitiveToUsd(
     prim.CreateAttribute(pointsToken, usdrt::SdfValueTypeNames->Point3fArray, false).Set(positions);
     prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
     prim.CreateAttribute(worldExtentToken, usdrt::SdfValueTypeNames->Range3d, false).Set(worldExtent.value());
-
-    // computedTransform represents the following sequence of transforms: glTF scene graph -> Y_UP_TO_Z_UP -> tile transform
-    // It doesn't take into account tileset transform, georeference origin, or USD coordinate system, a.k.a. anything that changes dynamically
-    // Here we save computedTransform in the _localTransform attribute so we can access it later
-    // Later we compute _worldPosition, _worldOrientation, _worldScale which override _localTransform.
-    // See http://omniverse-docs.s3-website-us-east-1.amazonaws.com/usdrt/5.0.0/docs/omnihydra_xforms.html
-    prim.CreateAttribute(localMatrixToken, usdrt::SdfValueTypeNames->Matrix4d, false).Set(localMatrix);
-    prim.CreateAttribute(worldPositionToken, usdrt::SdfValueTypeNames->Double3, false).Set(worldPosition);
-    prim.CreateAttribute(worldOrientationToken, usdrt::SdfValueTypeNames->Quatf, false).Set(worldOrientation);
-    prim.CreateAttribute(worldScaleToken, usdrt::SdfValueTypeNames->Vector3f, false).Set(worldScale);
+    prim.CreateAttribute(tilesetIdToken, usdrt::SdfValueTypeNames->Int, true).Set(tilesetId);
 
     // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
     // new TokenArray attributes, "primvars", and "primvarInterpolations", which are used internally by Fabric
@@ -393,46 +406,63 @@ void convertPrimitiveToUsd(
 
     prim.CreateAttribute(primvarsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
     prim.CreateAttribute(primvarInterpolationsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvarInterp);
-
-    // TODO: actually set world transform somewhere
 }
 
 void convertMeshToUsd(
-    usdrt::UsdStageRefPtr& stage,
+    const usdrt::UsdStageRefPtr& stage,
+    int tilesetId,
     const std::string& nodeName,
-    const glm::dmat4& computedTransform,
+    const glm::dmat4& ecefToUsdTransform,
+    const glm::dmat4& gltfToEcefTransform,
+    const glm::dmat4& nodeTransform,
     const CesiumGltf::Model& model,
     const CesiumGltf::Mesh& mesh) {
     for (auto i = 0; i < mesh.primitives.size(); i++) {
         const auto& primitive = mesh.primitives[i];
-        convertPrimitiveToUsd(stage, nodeName, computedTransform, model, primitive, i);
+        convertPrimitiveToUsd(
+            stage, tilesetId, nodeName, ecefToUsdTransform, gltfToEcefTransform, nodeTransform, model, primitive, i);
     }
 }
 
-void convertNodeToUsd(
-    usdrt::UsdStageRefPtr& stage,
+void convertNodeToUsdRecursive(
+    const usdrt::UsdStageRefPtr& stage,
+    int tilesetId,
     const std::string& parentName,
+    const glm::dmat4& ecefToUsdTransform,
+    const glm::dmat4& gltfToEcefTransform,
     const glm::dmat4& parentTransform,
     const CesiumGltf::Model& model,
     const CesiumGltf::Node& node,
     uint64_t nodeIndex) {
-    std::string computedName = fmt::format("{}_node_{}", parentName, nodeIndex);
-    glm::dmat4 computedTransform = parentTransform * getNodeMatrix(node);
-    for (int32_t child : node.children) {
-        if (child >= 0 && child < static_cast<int32_t>(model.nodes.size())) {
-            convertNodeToUsd(
+    const auto nodeName = fmt::format("{}_node_{}", parentName, nodeIndex);
+    const auto nodeTransform = parentTransform * getNodeMatrix(node);
+    for (auto child : node.children) {
+        const auto childIndex = static_cast<uint64_t>(child);
+        if (childIndex >= 0 && childIndex < model.nodes.size()) {
+            convertNodeToUsdRecursive(
                 stage,
-                computedName,
-                computedTransform,
+                tilesetId,
+                nodeName,
+                ecefToUsdTransform,
+                gltfToEcefTransform,
+                nodeTransform,
                 model,
-                model.nodes[static_cast<size_t>(child)],
-                static_cast<uint64_t>(child));
+                model.nodes[childIndex],
+                childIndex);
         }
     }
 
     auto meshIndex = static_cast<uint64_t>(node.mesh);
-    if (meshIndex < static_cast<int32_t>(model.meshes.size())) {
-        convertMeshToUsd(stage, computedName, computedTransform, model, model.meshes[meshIndex]);
+    if (meshIndex < model.meshes.size()) {
+        convertMeshToUsd(
+            stage,
+            tilesetId,
+            nodeName,
+            ecefToUsdTransform,
+            gltfToEcefTransform,
+            nodeTransform,
+            model,
+            model.meshes[meshIndex]);
     }
 }
 
@@ -440,35 +470,51 @@ void convertNodeToUsd(
 
 void createUsdrtPrims(
     long stageId,
-    const std::string& tilesetName,
+    int tilesetId,
+    const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& tileTransform,
+    const std::string& tilesetName,
     const CesiumGltf::Model& model) {
-    auto stage = getUsdrtStage(stageId);
+    const auto stage = getUsdrtStage(stageId);
 
-    // Converts glTF coordinate system (y-up) to 3D Tiles coordinate system (z-up)
-    const auto parentTransform = tileTransform * CesiumGeometry::AxisTransforms::Y_UP_TO_Z_UP;
+    const auto gltfToEcefTransform = tileTransform * CesiumGeometry::AxisTransforms::Y_UP_TO_Z_UP;
+    const auto parentTransform = glm::dmat4(1.0);
 
-    const auto sceneIdx = model.scene;
-    if (sceneIdx >= 0 && sceneIdx < static_cast<int32_t>(model.scenes.size())) {
-        const auto& scene = model.scenes[static_cast<size_t>(sceneIdx)];
+    const auto sceneIndex = static_cast<uint64_t>(model.scene);
+    if (sceneIndex >= 0 && sceneIndex < model.scenes.size()) {
+        const auto& scene = model.scenes[sceneIndex];
         for (const auto node : scene.nodes) {
-            if (node >= 0 && node < static_cast<int32_t>(model.nodes.size())) {
-                convertNodeToUsd(
+            const auto nodeIndex = static_cast<uint64_t>(node);
+            if (nodeIndex >= 0 && nodeIndex < model.nodes.size()) {
+                convertNodeToUsdRecursive(
                     stage,
+                    tilesetId,
                     tilesetName,
+                    ecefToUsdTransform,
+                    gltfToEcefTransform,
                     parentTransform,
                     model,
-                    model.nodes[static_cast<size_t>(node)],
-                    static_cast<uint64_t>(node));
+                    model.nodes[nodeIndex],
+                    nodeIndex);
             }
         }
     } else if (!model.nodes.empty()) {
-        for (auto i = 0; i < model.nodes.size(); i++) {
-            convertNodeToUsd(stage, tilesetName, parentTransform, model, model.nodes[i], i);
+        for (auto nodeIndex = 0; nodeIndex < model.nodes.size(); nodeIndex++) {
+            convertNodeToUsdRecursive(
+                stage,
+                tilesetId,
+                tilesetName,
+                ecefToUsdTransform,
+                gltfToEcefTransform,
+                parentTransform,
+                model,
+                model.nodes[nodeIndex],
+                nodeIndex);
         }
     } else {
         for (const auto& mesh : model.meshes) {
-            convertMeshToUsd(stage, tilesetName, parentTransform, model, mesh);
+            convertMeshToUsd(
+                stage, tilesetId, tilesetName, ecefToUsdTransform, gltfToEcefTransform, parentTransform, model, mesh);
         }
     }
 }

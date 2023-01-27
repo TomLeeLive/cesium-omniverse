@@ -13,14 +13,9 @@
 
 #include <Cesium3DTilesSelection/IonRasterOverlay.h>
 #include <Cesium3DTilesSelection/Tileset.h>
+#include <Cesium3DTilesSelection/ViewState.h>
 #include <pxr/usd/usd/prim.h>
 #include <pxr/usd/usd/stage.h>
-
-// #include <Cesium3DTilesSelection/IonRasterOverlay.h>
-// #include <CesiumGeometry/AxisTransforms.h>
-// #include <CesiumGltf/Material.h>
-// #include <CesiumUsdSchemas/data.h>
-// #include <glm/glm.hpp>
 
 namespace cesium::omniverse {
 
@@ -130,9 +125,16 @@ void OmniTileset::addIonRasterOverlay(const std::string& name, int64_t ionId, co
     _tileset->getOverlays().add(rasterOverlay);
 };
 
-void OmniTileset::setTransform(const glm::dmat4& globalToLocal) {
-    (void)globalToLocal;
-    // TODO
+const pxr::SdfPath& OmniTileset::getUsdPath() const {
+    return _usdPath;
+}
+
+const glm::dmat4& OmniTileset::getEcefToUsdTransform() const {
+    return _ecefToUsdTransform;
+}
+
+void OmniTileset::setEcefToUsdTransform(const glm::dmat4& ecefToUsdTransform) {
+    _ecefToUsdTransform = ecefToUsdTransform;
 }
 
 } // namespace cesium::omniverse

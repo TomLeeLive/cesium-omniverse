@@ -2,9 +2,8 @@
 
 #include "cesium/omniverse/CesiumOmniverse.h"
 
-#include <carb/PluginUtils.h>
-
 #include "CesiumUsdSchemas/data.h"
+
 #include "cesium/omniverse/Context.h"
 #include "cesium/omniverse/UsdUtil.h"
 
@@ -34,7 +33,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void addCesiumData(long stageId, const char* ionToken) noexcept override {
-        const auto& stage = pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
+        const auto stage = getUsdStage(stageId);
         pxr::UsdPrim cesiumDataPrim = stage->DefinePrim(pxr::SdfPath("/Cesium"));
         pxr::CesiumData cesiumData(cesiumDataPrim);
         auto ionTokenAttr = cesiumData.CreateIonTokenAttr(pxr::VtValue(""));
@@ -61,18 +60,19 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void updateFrame(
+        long stageId,
         const pxr::GfMatrix4d& viewMatrix,
         const pxr::GfMatrix4d& projMatrix,
         double width,
         double height) noexcept override {
-        const auto viewMatrixGlm = gfToGlmMatrix(viewMatrix);
-        const auto projMatrixGlm = gfToGlmMatrix(projMatrix);
-        Context::instance().updateFrame(viewMatrixGlm, projMatrixGlm, width, height);
+        const auto viewMatrixGlm = usdToGlmMatrix(viewMatrix);
+        const auto projMatrixGlm = usdToGlmMatrix(projMatrix);
+        Context::instance().updateFrame(stageId, viewMatrixGlm, projMatrixGlm, width, height);
     }
 
-    void setGeoreferenceOrigin(long stageId, double longitude, double latitude, double height) noexcept override {
+    void setGeoreferenceOrigin(double longitude, double latitude, double height) noexcept override {
         CesiumGeospatial::Cartographic cartographic(glm::radians(longitude), glm::radians(latitude), height);
-        Context::instance().setGeoreferenceOrigin(stageId, cartographic);
+        Context::instance().setGeoreferenceOrigin(cartographic);
     }
 
     void addCubeUsdrt(long stageId) noexcept override {

@@ -1,10 +1,11 @@
 #include "cesium/omniverse/Context.h"
 
-#include "cesium/omniverse/CoordinateSystem.h"
+#include "cesium/omniverse/CoordinateSystemUtil.h"
 #include "cesium/omniverse/HttpAssetAccessor.h"
 #include "cesium/omniverse/LoggerSink.h"
 #include "cesium/omniverse/OmniTileset.h"
 #include "cesium/omniverse/TaskProcessor.h"
+#include "cesium/omniverse/UsdUtil.h"
 
 #ifdef CESIUM_OMNI_MSVC
 #pragma push_macro("OPAQUE")
@@ -27,7 +28,6 @@ void Context::init(const std::filesystem::path& cesiumExtensionLocation) {
     _taskProcessor = std::make_shared<TaskProcessor>();
     _httpAssetAccessor = std::make_shared<HttpAssetAccessor>();
     _creditSystem = std::make_shared<Cesium3DTilesSelection::CreditSystem>();
-    _coordinateSystem = std::make_shared<CoordinateSystem>();
 
     _logger = std::make_shared<spdlog::logger>(
         std::string("cesium-omniverse"),
@@ -39,7 +39,7 @@ void Context::init(const std::filesystem::path& cesiumExtensionLocation) {
             std::make_shared<LoggerSink>(omni::log::Level::eFatal),
         });
 
-    _tilesetId = 0;
+    _tilesetIdCount = 0;
 
     _cesiumMemLocation = cesiumExtensionLocation / "bin";
     _certificatePath = cesiumExtensionLocation / "certs";
@@ -51,10 +51,9 @@ void Context::destroy() {
     _taskProcessor.reset();
     _httpAssetAccessor.reset();
     _creditSystem.reset();
-    _coordinateSystem.reset();
     _logger.reset();
 
-    _tilesetId = 0;
+    _tilesetIdCount = 0;
     _tilesets.clear();
 }
 
@@ -68,10 +67,6 @@ std::shared_ptr<HttpAssetAccessor> Context::getHttpAssetAccessor() {
 
 std::shared_ptr<Cesium3DTilesSelection::CreditSystem> Context::getCreditSystem() {
     return _creditSystem;
-}
-
-std::shared_ptr<CoordinateSystem> Context::getCoordinateSystem() {
-    return _coordinateSystem;
 }
 
 std::shared_ptr<spdlog::logger> Context::getLogger() {
@@ -110,38 +105,15 @@ void Context::updateFrame(
     const glm::dmat4& projMatrix,
     double width,
     double height) {
+    const auto viewState = computeViewState(stageId, _georeferenceOrigin, viewMatrix, projMatrix, width, height);
     _viewStates.clear();
-
-    const auto usdToEcef = getUsdToEcef(stageId, _origin);
-    const auto ecefToUsd = glm::inverse(usdToEcef);
-    auto inverseView = glm::inverse(viewMatrix);
-    auto omniCameraUp = glm::dvec3(inverseView[1]);
-    auto omniCameraFwd = glm::dvec3(-inverseView[2]);
-    auto omniCameraPosition = glm::dvec3(inverseView[3]);
-    auto cameraUp = glm::dvec3(usdToEcef * glm::dvec4(omniCameraUp, 0.0));
-    auto cameraFwd = glm::dvec3(usdToEcef * glm::dvec4(omniCameraFwd, 0.0));
-    auto cameraPosition = glm::dvec3(usdToEcef * glm::dvec4(omniCameraPosition, 1.0));
-
-    cameraUp = glm::normalize(cameraUp);
-    cameraFwd = glm::normalize(cameraFwd);
-
-    double aspect = width / height;
-    double verticalFov = 2.0 * glm::atan(1.0 / projMatrix[1][1]);
-    double horizontalFov = 2.0 * glm::atan(glm::tan(verticalFov * 0.5) * aspect);
-
-    auto viewState = Cesium3DTilesSelection::ViewState::create(
-        cameraPosition, cameraFwd, cameraUp, glm::dvec2(width, height), horizontalFov, verticalFov);
-
     _viewStates.emplace_back(viewState);
 
     for (const auto& [tilesetId, tileset] : _tilesets) {
-        const auto usdPath = tileset.getUsdPath();
-        const auto usdTransform = glmToGfMatrix(getUsdWorldTransform(tilesetUsdPath));
-        const auto ecefToUsd = ecefToUsd * tilesetUsdTransform;
-
-        if (usdToEcefTransform != tileset.getUsdToEcefTransform()) {
-            setUsdToEcefTransform(usdToEcefTransform);
-            // Update all prims
+        const auto transform = computeEcefToUsdTransformForPrim(stageId, _georeferenceOrigin, tileset->getUsdPath());
+        if (transform != tileset->getEcefToUsdTransform()) {
+            tileset->setEcefToUsdTransform(transform);
+            updatePrimTransforms(stageId, tilesetId, transform);
         }
 
         tileset->updateFrame(_viewStates);
@@ -149,11 +121,11 @@ void Context::updateFrame(
 }
 
 void Context::setGeoreferenceOrigin(const CesiumGeospatial::Cartographic& origin) {
-    _origin = origin;
+    _georeferenceOrigin = origin;
 }
 
 int Context::getTilesetId() {
-    return _tilesetId++;
+    return _tilesetIdCount++;
 }
 
 } // namespace cesium::omniverse

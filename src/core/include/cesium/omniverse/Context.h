@@ -19,7 +19,6 @@ class Cartographic;
 
 namespace cesium::omniverse {
 
-class CoordinateSystem;
 class HttpAssetAccessor;
 class OmniTileset;
 class TaskProcessor;
@@ -40,15 +39,15 @@ class Context {
     std::shared_ptr<TaskProcessor> getTaskProcessor();
     std::shared_ptr<HttpAssetAccessor> getHttpAssetAccessor();
     std::shared_ptr<Cesium3DTilesSelection::CreditSystem> getCreditSystem();
-    std::shared_ptr<CoordinateSystem> getCoordinateSystem();
     std::shared_ptr<spdlog::logger> getLogger();
 
     int addTilesetUrl(long stageId, const std::string& url);
     int addTilesetIon(long stageId, int64_t ionId, const std::string& accessToken);
     void removeTileset(int tileset);
     void addIonRasterOverlay(int tileset, const std::string& name, int64_t ionId, const std::string& ionToken);
-    void updateFrame(const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height);
-    void setGeoreferenceOrigin(long stageId, const CesiumGeospatial::Cartographic& origin);
+    void
+    updateFrame(long stageId, const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height);
+    void setGeoreferenceOrigin(const CesiumGeospatial::Cartographic& origin);
 
   private:
     Context() = default;
@@ -58,15 +57,14 @@ class Context {
     std::shared_ptr<TaskProcessor> _taskProcessor;
     std::shared_ptr<HttpAssetAccessor> _httpAssetAccessor;
     std::shared_ptr<Cesium3DTilesSelection::CreditSystem> _creditSystem;
-    std::shared_ptr<CoordinateSystem> _coordinateSystem;
     std::shared_ptr<spdlog::logger> _logger;
     std::unordered_map<int, std::unique_ptr<OmniTileset>> _tilesets;
     std::vector<Cesium3DTilesSelection::ViewState> _viewStates;
-    int _tilesetId;
+    int _tilesetIdCount = 0;
     std::filesystem::path _cesiumMemLocation;
     std::filesystem::path _certificatePath;
 
-    CesiumGeospatial::Cartographic _georeferenceOrigin;
+    CesiumGeospatial::Cartographic _georeferenceOrigin{0.0, 0.0, 0.0};
 };
 
 #define CESIUM_LOG_VERBOSE(message, ...) Context::instance().getLogger()->verbose(message, __VA_ARGS__);

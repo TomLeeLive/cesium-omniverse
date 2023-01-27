@@ -80,6 +80,7 @@ class ICesiumOmniverseInterface {
      * @param height The screen height
      */
     virtual void updateFrame(
+        long stageId,
         // TODO: take a double* instead
         const pxr::GfMatrix4d& viewMatrix,
         const pxr::GfMatrix4d& projMatrix,
@@ -89,12 +90,11 @@ class ICesiumOmniverseInterface {
     /**
      * @brief Sets the georeference origin based on the WGS84 ellipsoid.
      *
-     * @param stageId The USD stage id
      * @param longitude The longitude in degrees
      * @param latitude The latitude in degrees
      * @param height The height in meters
      */
-    virtual void setGeoreferenceOrigin(long stageId, double longitude, double latitude, double height) noexcept = 0;
+    virtual void setGeoreferenceOrigin(double longitude, double latitude, double height) noexcept = 0;
 
     /**
      * @brief Adds a cube to Fabric using the USDRT API.

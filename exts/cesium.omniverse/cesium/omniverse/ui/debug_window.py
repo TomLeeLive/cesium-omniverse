@@ -76,7 +76,11 @@ class CesiumOmniverseDebugWindow(ui.Window):
             """Actions performed on each frame update."""
 
             viewport = get_active_viewport()
+
+            stage_id = omni.usd.get_context().get_stage_id()
+
             self._cesium_omniverse_interface.updateFrame(
+                stage_id,
                 viewport.view,
                 viewport.projection,
                 float(viewport.resolution[0]),
@@ -108,7 +112,7 @@ class CesiumOmniverseDebugWindow(ui.Window):
             self._cesium_omniverse_interface.addCesiumData(stage_id, "")
 
             # Cape Canaveral
-            self._cesium_omniverse_interface.setGeoreferenceOrigin(stage_id, -80.53, 28.46, -30.0)
+            self._cesium_omniverse_interface.setGeoreferenceOrigin(-80.53, 28.46, -30.0)
 
             self._cesium_omniverse_interface.addTilesetIon(
                 stage_id,
@@ -124,7 +128,7 @@ class CesiumOmniverseDebugWindow(ui.Window):
             self._cesium_omniverse_interface.addCesiumData(stage_id, "")
 
             # Cesium HQ
-            self._cesium_omniverse_interface.setGeoreferenceOrigin(stage_id, -75.1564977, 39.9501464, 150.0)
+            self._cesium_omniverse_interface.setGeoreferenceOrigin(-75.1564977, 39.9501464, 150.0)
 
             tileset_id = self._cesium_omniverse_interface.addTilesetIon(
                 stage_id,
@@ -147,7 +151,7 @@ class CesiumOmniverseDebugWindow(ui.Window):
             self._cesium_omniverse_interface.addCesiumData(stage_id, "")
 
             # Cesium HQ
-            self._cesium_omniverse_interface.setGeoreferenceOrigin(stage_id, -75.1564977, 39.9501464, 150.0)
+            self._cesium_omniverse_interface.setGeoreferenceOrigin(-75.1564977, 39.9501464, 150.0)
 
             tileset_id = self._cesium_omniverse_interface.addTilesetIon(
                 stage_id,

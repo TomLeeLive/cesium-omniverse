@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <pxr/usd/usd/path.h>
+#include <pxr/usd/sdf/path.h>
 
 #include <memory>
 #include <string>
@@ -20,16 +20,16 @@ class OmniTileset {
     OmniTileset(const std::string& name, long stageId, const std::string& url);
     OmniTileset(const std::string& name, long stageId, int64_t ionId, const std::string& ionToken);
     ~OmniTileset();
-    void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates) const;
-    void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken) const;
-    pxr::SdfPath getUsdPath() const;
-    glm::dmat4 getUsdToEcefTransform() const;
-    void setUsdToEcefTransform();
+    void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates);
+    void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken);
+    const pxr::SdfPath& getUsdPath() const;
+    const glm::dmat4& getEcefToUsdTransform() const;
+    void setEcefToUsdTransform(const glm::dmat4& ecefToUsdTransform);
 
   private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> _tileset;
     std::shared_ptr<RenderResourcesPreparer> _renderResourcesPreparer;
     pxr::SdfPath _usdPath;
-    glm::dmat4 _usdToEcefTransform;
+    glm::dmat4 _ecefToUsdTransform;
 };
 } // namespace cesium::omniverse

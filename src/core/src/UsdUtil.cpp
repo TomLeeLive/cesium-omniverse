@@ -2,6 +2,7 @@
 
 #include "cesium/omniverse/UsdUtil.h"
 
+#include <glm/gtx/matrix_decompose.hpp>
 #include <pxr/usd/usd/timeCode.h>
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/xform.h>
@@ -9,6 +10,193 @@
 #include <spdlog/fmt/fmt.h>
 
 namespace cesium::omniverse {
+
+pxr::UsdStageRefPtr getUsdStage(long stageId) {
+    return pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
+}
+
+usdrt::UsdStageRefPtr getUsdrtStage(long stageId) {
+    return usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
+}
+
+carb::flatcache::StageInProgress getFabricStageInProgress(long stageId) {
+    const auto stage = getUsdrtStage(stageId);
+    const auto stageInProgressId = stage->GetStageInProgressId();
+    return carb::flatcache::StageInProgress(stageInProgressId);
+}
+
+glm::dmat4 usdToGlmMatrix(const pxr::GfMatrix4d& matrix) {
+    // Row-major to column-major
+    return glm::dmat4{
+        matrix[0][0],
+        matrix[1][0],
+        matrix[2][0],
+        matrix[3][0],
+        matrix[0][1],
+        matrix[1][1],
+        matrix[2][1],
+        matrix[3][1],
+        matrix[0][2],
+        matrix[1][2],
+        matrix[2][2],
+        matrix[3][2],
+        matrix[0][3],
+        matrix[1][3],
+        matrix[2][3],
+        matrix[3][3],
+    };
+}
+
+glm::dmat4 usdrtToGlmMatrix(const usdrt::GfMatrix4d& matrix) {
+    // Row-major to column-major
+    return glm::dmat4{
+        matrix[0][0],
+        matrix[1][0],
+        matrix[2][0],
+        matrix[3][0],
+        matrix[0][1],
+        matrix[1][1],
+        matrix[2][1],
+        matrix[3][1],
+        matrix[0][2],
+        matrix[1][2],
+        matrix[2][2],
+        matrix[3][2],
+        matrix[0][3],
+        matrix[1][3],
+        matrix[2][3],
+        matrix[3][3],
+    };
+}
+
+pxr::GfMatrix4d glmToUsdMatrix(const glm::dmat4& matrix) {
+    // Column-major to row-major
+    return pxr::GfMatrix4d{
+        matrix[0][0],
+        matrix[1][0],
+        matrix[2][0],
+        matrix[3][0],
+        matrix[0][1],
+        matrix[1][1],
+        matrix[2][1],
+        matrix[3][1],
+        matrix[0][2],
+        matrix[1][2],
+        matrix[2][2],
+        matrix[3][2],
+        matrix[0][3],
+        matrix[1][3],
+        matrix[2][3],
+        matrix[3][3],
+    };
+}
+
+usdrt::GfMatrix4d glmToUsdrtMatrix(const glm::dmat4& matrix) {
+    // Column-major to row-major
+    return usdrt::GfMatrix4d{
+        matrix[0][0],
+        matrix[1][0],
+        matrix[2][0],
+        matrix[3][0],
+        matrix[0][1],
+        matrix[1][1],
+        matrix[2][1],
+        matrix[3][1],
+        matrix[0][2],
+        matrix[1][2],
+        matrix[2][2],
+        matrix[3][2],
+        matrix[0][3],
+        matrix[1][3],
+        matrix[2][3],
+        matrix[3][3],
+    };
+}
+
+Decomposed glmToUsdrtMatrixDecomposed(const glm::dmat4& matrix) {
+    glm::dvec3 scale;
+    glm::dquat rotation;
+    glm::dvec3 translation;
+    glm::dvec3 skew;
+    glm::dvec4 perspective;
+
+    // TOOD: are the USD helpers faster? https://docs.omniverse.nvidia.com/prod_usd/prod_usd/python-snippets/transforms/get-world-transforms.html
+    bool decomposable = glm::decompose(matrix, scale, rotation, translation, skew, perspective);
+    assert(decomposable);
+
+    glm::fquat rotationF32(rotation);
+    glm::fvec3 scaleF32(scale);
+
+    return {
+        usdrt::GfVec3d(translation.x, translation.y, translation.z),
+        usdrt::GfQuatf(rotationF32.w, usdrt::GfVec3f(rotationF32.x, rotationF32.y, rotationF32.z)),
+        usdrt::GfVec3f(scaleF32.x, scaleF32.y, scaleF32.z),
+    };
+}
+
+glm::dmat4 computeUsdWorldTransform(long stageId, const pxr::SdfPath& path) {
+    const auto stage = getUsdStage(stageId);
+    const auto prim = stage->GetPrimAtPath(path);
+    assert(prim.IsValid());
+    const auto xform = pxr::UsdGeomXformable(prim);
+    const auto time = pxr::UsdTimeCode::Default();
+    const auto transform = xform.ComputeLocalToWorldTransform(time);
+    return usdToGlmMatrix(transform);
+}
+
+pxr::TfToken getUsdUpAxis(long stageId) {
+    const auto stage = getUsdStage(stageId);
+    return pxr::UsdGeomGetStageUpAxis(stage);
+}
+
+double getUsdMetersPerUnit(long stageId) {
+    const auto stage = getUsdStage(stageId);
+    const auto metersPerUnit = pxr::UsdGeomGetStageMetersPerUnit(stage);
+    return metersPerUnit;
+}
+
+void updatePrimTransforms(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform) {
+    auto sip = getFabricStageInProgress(stageId);
+
+    // These should match the type/name in convertPrimitiveToUsd in GltfToUSD
+    carb::flatcache::Type tilesetIdType(carb::flatcache::BaseDataType::eInt, 1, 0);
+    carb::flatcache::Token tilesetIdToken("_tilesetId");
+    carb::flatcache::Token localMatrixToken("_localMatrix");
+    carb::flatcache::Token worldPosToken("_worldPosition");
+    carb::flatcache::Token worldOrToken("_worldOrientation");
+    carb::flatcache::Token worldScaleToken("_worldScale");
+
+    const auto& buckets = sip.findPrims({carb::flatcache::AttrNameAndType(tilesetIdType, tilesetIdToken)});
+
+    for (auto bucketId = 0; bucketId < buckets.bucketCount(); bucketId++) {
+        const auto tilesetIdArray = sip.getAttributeArrayRd<int>(buckets, bucketId, tilesetIdToken);
+        const auto localMatrixArray = sip.getAttributeArrayRd<usdrt::GfMatrix4d>(buckets, bucketId, localMatrixToken);
+
+        // Technically _worldPosition type is Double[3] it's fine to reinterpret as GfVec3d
+        // TODO: is it a problem that rotation and scale are 32-bit?
+        const auto worldPositionArray = sip.getAttributeArrayWr<usdrt::GfVec3d>(buckets, bucketId, worldPosToken);
+        const auto worldOrientationArray = sip.getAttributeArrayWr<usdrt::GfQuatf>(buckets, bucketId, worldOrToken);
+        const auto worldScaleArray = sip.getAttributeArrayWr<usdrt::GfVec3f>(buckets, bucketId, worldScaleToken);
+
+        for (auto i = 0; i < tilesetIdArray.size(); i++) {
+            if (tilesetIdArray[i] == tilesetId) {
+                auto localToEcefTransform = usdrtToGlmMatrix(localMatrixArray[i]);
+                auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
+                auto [position, orientation, scale] = glmToUsdrtMatrixDecomposed(localToUsdTransform);
+                worldPositionArray[i] = position;
+                worldOrientationArray[i] = orientation;
+                worldScaleArray[i] = scale;
+            }
+        }
+    }
+}
+
+void updatePrimVisibility(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform) {
+    (void)stageId;
+    (void)tilesetId;
+    (void)ecefToUsdTransform;
+    // TODO
+}
 
 namespace {
 template <typename T>
@@ -200,64 +388,6 @@ std::string printUsdrtPrim(const usdrt::UsdPrim& prim, const bool printChildren)
 }
 
 } // namespace
-
-pxr::UsdStageRefPtr getUsdStage(long stageId) {
-    return pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
-}
-
-usdrt::UsdStageRefPtr getUsdrtStage(long stageId) {
-    return usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
-}
-
-carb::flatcache::StageInProgress getFabricStageInProgress(long stageId) {
-    const auto stage = getUsdrtStage(stageId);
-    const auto stageInProgressId = stage->GetStageInProgressId();
-    return carb::flatcache::StageInProgress(stageInProgressId);
-}
-
-glm::dmat4 gfToGlmMatrix(const pxr::GfMatrix4d& matrix) {
-    // Row-major to column-major
-    return glm::dmat4{
-        matrix[0][0],
-        matrix[1][0],
-        matrix[2][0],
-        matrix[3][0],
-        matrix[0][1],
-        matrix[1][1],
-        matrix[2][1],
-        matrix[3][1],
-        matrix[0][2],
-        matrix[1][2],
-        matrix[2][2],
-        matrix[3][2],
-        matrix[0][3],
-        matrix[1][3],
-        matrix[2][3],
-        matrix[3][3],
-    };
-}
-
-pxr::GfMatrix4d glmToGfMatrix(const glm::dmat4& matrix) {
-    // Column-major to row-major
-    return pxr::GfMatrix4d{
-        matrix[0][0],
-        matrix[1][0],
-        matrix[2][0],
-        matrix[3][0],
-        matrix[0][1],
-        matrix[1][1],
-        matrix[2][1],
-        matrix[3][1],
-        matrix[0][2],
-        matrix[1][2],
-        matrix[2][2],
-        matrix[3][2],
-        matrix[0][3],
-        matrix[1][3],
-        matrix[2][3],
-        matrix[3][3],
-    };
-}
 
 std::string printUsdrtStage(long stageId) {
     const auto stage = getUsdrtStage(stageId);
@@ -591,25 +721,6 @@ std::string printFabricStage(long stageId) {
     }
 
     return stream.str();
-}
-
-pxr::GfMatrix4d getUsdWorldTransform(long stageId, pxr::SdfPath path) {
-    const auto& stage = getUsdStage(stageId);
-    const auto& prim = stage->GetPrimAtPath(path);
-    const auto& xform = pxr::UsdGeomXformable(prim);
-    const auto time = pxr::UsdTimeCode::Default();
-    return xform.ComputeLocalToWorldTransform(time);
-}
-
-pxr::TfToken getUsdUpAxis(long stageId) {
-    const auto stage = getUsdStage(stageId);
-    return pxr::UsdGeomGetStageUpAxis(stage);
-}
-
-double getUsdMetersPerUnit(long stageId) {
-    const auto stage = getUsdStage(stageId);
-    const auto metersPerUnit = pxr::UsdGeomGetStageMetersPerUnit(stage);
-    return metersPerUnit;
 }
 
 } // namespace cesium::omniverse
