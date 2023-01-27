@@ -127,7 +127,7 @@ void Context::updateFrame(
         const auto transform = computeEcefToUsdTransformForPrim(stageId, _georeferenceOrigin, tileset->getUsdPath());
         if (transform != tileset->getEcefToUsdTransform()) {
             tileset->setEcefToUsdTransform(transform);
-            updatePrimTransforms(stageId, tileset->getId(), transform);
+            //updatePrimTransforms(stageId, tileset->getId(), transform);
         }
 
         tileset->updateFrame(_viewStates);

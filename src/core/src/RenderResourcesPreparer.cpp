@@ -20,24 +20,36 @@ RenderResourcesPreparer::prepareInLoadThread(
     Cesium3DTilesSelection::TileLoadResult&& tileLoadResult,
     const glm::dmat4& transform,
     [[maybe_unused]] const std::any& rendererOptions) {
+    // TODO: handle gltf up axis
+    // TODO: unlit
+    // TODO: don't want to do this in main thread
     const auto pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
     if (!pModel)
         return asyncSystem.createResolvedFuture(
             Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
 
-    createUsdrtPrims(
-        _stageId,
-        _tileset.getId(),
-        _tileCount++,
-        computeEcefToUsdTransformForPrim(_stageId, Context::instance().getGeoreferenceOrigin(), _tileset.getUsdPath()),
-        transform,
-        _tileset.getUsdPath().GetName(),
-        *pModel);
+    return asyncSystem.runInMainThread([this, asyncSystem, transform, tileLoadResult = std::move(tileLoadResult)]() {
+        const auto pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
+        if (!pModel) {
+            return asyncSystem.createResolvedFuture(
+                Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
+        }
+
+        createUsdrtPrims(
+            _stageId,
+            _tileset.getId(),
+            _tileCount++,
+            computeEcefToUsdTransformForPrim(
+                _stageId, Context::instance().getGeoreferenceOrigin(), _tileset.getUsdPath()),
+            transform,
+            _tileset.getUsdPath().GetName(),
+            *pModel);
+
+        return asyncSystem.createResolvedFuture(
+            Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
+    });
 
     //setActiveOnAllDescendantMeshes(prim, false);
-
-    return asyncSystem.createResolvedFuture(
-        Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
 }
 
 void* RenderResourcesPreparer::prepareInMainThread(Cesium3DTilesSelection::Tile& tile, void* pLoadThreadResult) {

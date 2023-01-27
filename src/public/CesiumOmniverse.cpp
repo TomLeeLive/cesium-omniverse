@@ -238,11 +238,6 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const auto stage = getUsdrtStage(stageId);
         const auto primPath = usdrt::SdfPath("/example_prim_usdrt");
 
-        const auto& prim = stage->GetPrimAtPath(primPath);
-        if (!prim.IsValid()) {
-            return;
-        }
-
         stage->RemovePrim(primPath);
 
         // Prims removed from Fabric need special handling for their removal to be reflected in the Hydra render index

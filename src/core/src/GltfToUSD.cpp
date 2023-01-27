@@ -203,8 +203,10 @@ usdrt::VtArray<int> getPrimitiveIndices(
         model.getSafe<CesiumGltf::Accessor>(&model.accessors, primitive.indices);
     if (!indicesAccessor) {
         usdrt::VtArray<int> indices;
-        indices.resize(positions.size());
-        std::iota(indices.begin(), indices.end(), 0);
+        indices.reserve(positions.size());
+        for (auto i = 0; i < positions.size(); i++) {
+            indices.push_back(i);
+        }
         return indices;
     }
 
@@ -244,8 +246,13 @@ usdrt::VtArray<usdrt::GfVec3f> getPrimitiveNormals(
     }
 
     // Generate smooth normals
-    // TODO: confirm that VtArray elements are initialized to 0
-    usdrt::VtArray<usdrt::GfVec3f> normalsUsd(positions.size());
+    usdrt::VtArray<usdrt::GfVec3f> normalsUsd;
+    normalsUsd.reserve(static_cast<uint64_t>(positions.size()));
+
+    for (auto i = 0; i < positions.size(); i++) {
+        normalsUsd.push_back(usdrt::GfVec3f(0.0));
+    }
+
     for (auto i = 0; i < indices.size(); i += 3) {
         auto idx0 = indices[i];
         auto idx1 = indices[i + 1];
@@ -318,6 +325,8 @@ getPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive&
     return getUVs(model, primitive, "TEXCOORD", setIndex, true);
 }
 
+std::mutex mutex;
+
 void convertPrimitiveToUsd(
     const usdrt::UsdStageRefPtr& stage,
     int tilesetId,
@@ -328,6 +337,8 @@ void convertPrimitiveToUsd(
     const CesiumGltf::Model& model,
     const CesiumGltf::MeshPrimitive& primitive,
     uint64_t primitiveIndex) {
+
+    std::scoped_lock<std::mutex> lock(mutex);
 
     usdrt::VtArray<usdrt::GfVec3f> positions = getPrimitivePositions(model, primitive);
     usdrt::VtArray<int> indices = getPrimitiveIndices(model, primitive, positions);
@@ -342,8 +353,13 @@ void convertPrimitiveToUsd(
         return;
     }
 
-    usdrt::VtArray<int> faceVertexCounts(indices.size() / 3);
-    std::fill(faceVertexCounts.begin(), faceVertexCounts.end(), 3);
+    const auto faceCount = indices.size() / 3;
+    usdrt::VtArray<int> faceVertexCounts;
+    faceVertexCounts.reserve(faceCount);
+
+    for (auto i = 0; i < faceCount; i++) {
+        faceVertexCounts.push_back(3);
+    }
 
     usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
 
@@ -352,6 +368,10 @@ void convertPrimitiveToUsd(
     auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
     auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
     auto [worldPosition, worldOrientation, worldScale] = glmToUsdrtMatrixDecomposed(localToUsdTransform);
+
+    (void)worldPosition;
+    (void)worldOrientation;
+    (void)worldScale;
 
     // TODO: precreate tokens
     usdrt::TfToken meshToken("Mesh");
@@ -384,11 +404,11 @@ void convertPrimitiveToUsd(
     // after step 4 and we need to recompute _worldPosition, _worldOrientation, _worldScale
     // Note that _worldPosition, _worldOrientation, _worldScale override _localMatrix
     // See http://omniverse-docs.s3-website-us-east-1.amazonaws.com/usdrt/5.0.0/docs/omnihydra_xforms.html
-    const auto xform = usdrt::RtXformable(prim);
-    xform.CreateLocalMatrixAttr(glmToUsdrtMatrix(localToEcefTransform));
-    xform.CreateWorldPositionAttr(worldPosition);
-    xform.CreateWorldOrientationAttr(worldOrientation);
-    xform.CreateWorldScaleAttr(worldScale);
+    // const auto xform = usdrt::RtXformable(prim);
+    // xform.CreateLocalMatrixAttr(glmToUsdrtMatrix(localToEcefTransform));
+    // xform.CreateWorldPositionAttr(worldPosition);
+    // xform.CreateWorldOrientationAttr(worldOrientation);
+    // xform.CreateWorldScaleAttr(worldScale);
 
     // TODO: normals
     prim.CreateAttribute(faceVertexCountsToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);

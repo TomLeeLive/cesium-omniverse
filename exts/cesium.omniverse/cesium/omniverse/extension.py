@@ -62,9 +62,9 @@ class CesiumOmniverseExtension(omni.ext.IExt):
 
         show_on_startup = True
 
-        self._add_to_menu(CesiumOmniverseMainWindow.MENU_PATH, self.show_main_window, show_on_startup)
+        self._add_to_menu(CesiumOmniverseMainWindow.MENU_PATH, self.show_main_window, False)
         self._add_to_menu(CesiumOmniverseAssetWindow.MENU_PATH, self.show_assets_window, False)
-        self._add_to_menu(CesiumOmniverseDebugWindow.MENU_PATH, self.show_debug_window, False)
+        self._add_to_menu(CesiumOmniverseDebugWindow.MENU_PATH, self.show_debug_window, show_on_startup)
 
         self._logger.info("CesiumOmniverse startup")
 
@@ -75,7 +75,7 @@ class CesiumOmniverseExtension(omni.ext.IExt):
 
         # Show the window. It will call `self.show_window`
         if show_on_startup:
-            ui.Workspace.show_window(CesiumOmniverseMainWindow.WINDOW_NAME)
+            ui.Workspace.show_window(CesiumOmniverseDebugWindow.WINDOW_NAME)
 
     def on_shutdown(self):
         self._menu = None
