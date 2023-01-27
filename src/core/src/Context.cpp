@@ -80,7 +80,7 @@ std::shared_ptr<spdlog::logger> Context::getLogger() {
 int Context::addTilesetUrl(long stageId, const std::string& url) {
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_{}", tilesetId);
-    const auto tilesetUsdPath = getChildOfRootPathUnique(stageId, tilesetName);
+    const auto tilesetUsdPath = UsdUtil::getChildOfRootPathUnique(stageId, tilesetName);
     _tilesets.emplace_back(std::make_unique<OmniTileset>(stageId, tilesetId, tilesetUsdPath, url));
     return tilesetId;
 }
@@ -88,7 +88,7 @@ int Context::addTilesetUrl(long stageId, const std::string& url) {
 int Context::addTilesetIon(long stageId, int64_t ionId, const std::string& ionToken) {
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_ion_{}", ionId);
-    const auto tilesetUsdPath = getChildOfRootPathUnique(stageId, tilesetName);
+    const auto tilesetUsdPath = UsdUtil::getChildOfRootPathUnique(stageId, tilesetName);
     _tilesets.emplace_back(std::make_unique<OmniTileset>(stageId, tilesetId, tilesetUsdPath, ionId, ionToken));
     return tilesetId;
 }
@@ -119,15 +119,18 @@ void Context::updateFrame(
     const glm::dmat4& projMatrix,
     double width,
     double height) {
-    const auto viewState = computeViewState(stageId, _georeferenceOrigin, viewMatrix, projMatrix, width, height);
+    const auto viewState =
+        CoordinateSystemUtil::computeViewState(stageId, _georeferenceOrigin, viewMatrix, projMatrix, width, height);
     _viewStates.clear();
     _viewStates.emplace_back(viewState);
 
     for (const auto& tileset : _tilesets) {
-        const auto transform = computeEcefToUsdTransformForPrim(stageId, _georeferenceOrigin, tileset->getUsdPath());
+        // TODO: instead we should be watching for changes
+        const auto transform =
+            CoordinateSystemUtil::computeEcefToUsdTransformForPrim(stageId, _georeferenceOrigin, tileset->getUsdPath());
         if (transform != tileset->getEcefToUsdTransform()) {
             tileset->setEcefToUsdTransform(transform);
-            //updatePrimTransforms(stageId, tileset->getId(), transform);
+            UsdUtil::updatePrimTransforms(stageId, tileset->getId(), transform);
         }
 
         tileset->updateFrame(_viewStates);

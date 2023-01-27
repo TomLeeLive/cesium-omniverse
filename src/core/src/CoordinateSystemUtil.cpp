@@ -10,7 +10,7 @@
 #include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usdGeom/tokens.h>
 
-namespace cesium::omniverse {
+namespace cesium::omniverse::CoordinateSystemUtil {
 
 namespace {
 glm::dmat4 getEastNorthUpToFixedFrame(const CesiumGeospatial::Cartographic& cartographic) {
@@ -19,7 +19,7 @@ glm::dmat4 getEastNorthUpToFixedFrame(const CesiumGeospatial::Cartographic& cart
 }
 
 glm::dmat4 getAxisConversionTransform(long stageId) {
-    const auto upAxis = getUsdUpAxis(stageId);
+    const auto upAxis = UsdUtil::getUsdUpAxis(stageId);
 
     auto axisConversion = glm::dmat4(1.0);
     if (upAxis == pxr::UsdGeomTokens->y) {
@@ -30,7 +30,7 @@ glm::dmat4 getAxisConversionTransform(long stageId) {
 }
 
 glm::dmat4 getUnitConversionTransform(long stageId) {
-    const auto metersPerUnit = getUsdMetersPerUnit(stageId);
+    const auto metersPerUnit = UsdUtil::getUsdMetersPerUnit(stageId);
     return glm::scale(glm::dmat4(1.0), glm::dvec3(metersPerUnit));
 }
 
@@ -50,7 +50,7 @@ glm::dmat4 computeEcefToUsdTransformForPrim(
     const CesiumGeospatial::Cartographic& origin,
     const pxr::SdfPath& primPath) {
     const auto ecefToUsdTransform = computeEcefToUsdTransform(stageId, origin);
-    const auto primUsdWorldTransform = computeUsdWorldTransform(stageId, primPath);
+    const auto primUsdWorldTransform = UsdUtil::computeUsdWorldTransform(stageId, primPath);
     const auto primEcefToUsdTransform = primUsdWorldTransform * ecefToUsdTransform;
     return primEcefToUsdTransform;
 }
@@ -82,4 +82,4 @@ Cesium3DTilesSelection::ViewState computeViewState(
         cameraPosition, cameraFwd, cameraUp, glm::dvec2(width, height), horizontalFov, verticalFov);
 }
 
-} // namespace cesium::omniverse
+} // namespace cesium::omniverse::CoordinateSystemUtil

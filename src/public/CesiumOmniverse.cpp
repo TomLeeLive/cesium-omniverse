@@ -33,7 +33,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void addCesiumData(long stageId, const char* ionToken) noexcept override {
-        const auto stage = getUsdStage(stageId);
+        const auto stage = UsdUtil::getUsdStage(stageId);
         pxr::UsdPrim cesiumDataPrim = stage->DefinePrim(pxr::SdfPath("/Cesium"));
         pxr::CesiumData cesiumData(cesiumDataPrim);
         auto ionTokenAttr = cesiumData.CreateIonTokenAttr(pxr::VtValue(""));
@@ -65,8 +65,8 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const pxr::GfMatrix4d& projMatrix,
         double width,
         double height) noexcept override {
-        const auto viewMatrixGlm = usdToGlmMatrix(viewMatrix);
-        const auto projMatrixGlm = usdToGlmMatrix(projMatrix);
+        const auto viewMatrixGlm = UsdUtil::usdToGlmMatrix(viewMatrix);
+        const auto projMatrixGlm = UsdUtil::usdToGlmMatrix(projMatrix);
         Context::instance().updateFrame(stageId, viewMatrixGlm, projMatrixGlm, width, height);
     }
 
@@ -76,7 +76,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void addCubeUsdrt(long stageId) noexcept override {
-        const auto stage = getUsdrtStage(stageId);
+        const auto stage = UsdUtil::getUsdrtStage(stageId);
 
         // Create a cube prim.
         const usdrt::SdfPath primPath("/example_prim_usdrt");
@@ -120,7 +120,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void addCubeUsd(long stageId) noexcept override {
-        const auto stage = getUsdStage(stageId);
+        const auto stage = UsdUtil::getUsdStage(stageId);
 
         // Create a cube prim.
         const pxr::SdfPath primPath("/example_prim_usd");
@@ -151,7 +151,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void addCubeFabric(long stageId) noexcept override {
-        auto stageInProgress = getFabricStageInProgress(stageId);
+        auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
         carb::flatcache::Path primPath("/example_prim_fabric");
         carb::flatcache::Token faceVertexCountsToken("faceVertexCounts");
@@ -235,7 +235,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     void removeCubeUsdrt(long stageId) noexcept override {
-        const auto stage = getUsdrtStage(stageId);
+        const auto stage = UsdUtil::getUsdrtStage(stageId);
         const auto primPath = usdrt::SdfPath("/example_prim_usdrt");
 
         stage->RemovePrim(primPath);
@@ -255,11 +255,11 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     }
 
     std::string printUsdrtStage(long stageId) noexcept override {
-        return printUsdrtStage(stageId);
+        return UsdUtil::printUsdrtStage(stageId);
     }
 
     std::string printFabricStage(long stageId) noexcept override {
-        return printFabricStage(stageId);
+        return UsdUtil::printFabricStage(stageId);
     }
 };
 } // namespace cesium::omniverse

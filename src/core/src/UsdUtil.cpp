@@ -11,7 +11,7 @@
 #include <pxr/usd/usdUtils/stageCache.h>
 #include <spdlog/fmt/fmt.h>
 
-namespace cesium::omniverse {
+namespace cesium::omniverse::UsdUtil {
 
 pxr::UsdStageRefPtr getUsdStage(long stageId) {
     return pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
@@ -746,4 +746,4 @@ std::string printFabricStage(long stageId) {
     return stream.str();
 }
 
-} // namespace cesium::omniverse
+} // namespace cesium::omniverse::UsdUtil

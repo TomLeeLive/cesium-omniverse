@@ -8,7 +8,7 @@ namespace CesiumGeospatial {
 class Cartographic;
 }
 
-namespace cesium::omniverse {
+namespace cesium::omniverse::CoordinateSystemUtil {
 
 glm::dmat4 computeUsdToEcefTransform(long stageId, const CesiumGeospatial::Cartographic& origin);
 glm::dmat4 computeEcefToUsdTransform(long stageId, const CesiumGeospatial::Cartographic& origin);
@@ -24,4 +24,4 @@ Cesium3DTilesSelection::ViewState computeViewState(
     double width,
     double height);
 
-} // namespace cesium::omniverse
+} // namespace cesium::omniverse::CoordinateSystemUtil

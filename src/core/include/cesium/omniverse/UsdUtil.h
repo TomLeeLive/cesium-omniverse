@@ -8,7 +8,7 @@
 #include <usdrt/gf/matrix.h>
 #include <usdrt/scenegraph/usd/usd/stage.h>
 
-namespace cesium::omniverse {
+namespace cesium::omniverse::UsdUtil {
 
 struct Decomposed {
     usdrt::GfVec3d position;
@@ -37,4 +37,4 @@ void updatePrimVisibility(long stageId, int tilesetId, bool visible);
 std::string printFabricStage(long stageId);
 std::string printUsdrtStage(long stageId);
 
-} // namespace cesium::omniverse
+} // namespace cesium::omniverse::UsdUtil

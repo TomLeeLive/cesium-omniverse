@@ -28,7 +28,7 @@ struct InitializeTilesetResult {
 
 namespace {
 InitializeTilesetResult initializeTileset(long stageId, const pxr::SdfPath& usdPath, const OmniTileset& tileset) {
-    const auto stage = getUsdStage(stageId);
+    const auto stage = UsdUtil::getUsdStage(stageId);
     pxr::UsdGeomXform::Define(stage, usdPath);
     const auto renderResourcesPreparer = std::make_shared<RenderResourcesPreparer>(stageId, tileset);
     auto& context = Context::instance();

@@ -8,7 +8,7 @@
 #include <CesiumGltf/Model.h>
 #include <usdrt/scenegraph/usd/sdf/path.h>
 
-namespace cesium::omniverse {
+namespace cesium::omniverse::GltfToUsd {
 void createUsdrtPrims(
     long stageId,
     int tilesetId,

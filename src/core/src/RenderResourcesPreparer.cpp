@@ -35,11 +35,11 @@ RenderResourcesPreparer::prepareInLoadThread(
                 Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
         }
 
-        createUsdrtPrims(
+        GltfToUsd::createUsdrtPrims(
             _stageId,
             _tileset.getId(),
             _tileCount++,
-            computeEcefToUsdTransformForPrim(
+            CoordinateSystemUtil::computeEcefToUsdTransformForPrim(
                 _stageId, Context::instance().getGeoreferenceOrigin(), _tileset.getUsdPath()),
             transform,
             _tileset.getUsdPath().GetName(),

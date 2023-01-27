@@ -22,7 +22,7 @@
 #include <numeric>
 #include <optional>
 
-namespace cesium::omniverse {
+namespace cesium::omniverse::GltfToUsd {
 
 namespace {
 
@@ -367,7 +367,7 @@ void convertPrimitiveToUsd(
 
     auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
     auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
-    auto [worldPosition, worldOrientation, worldScale] = glmToUsdrtMatrixDecomposed(localToUsdTransform);
+    auto [worldPosition, worldOrientation, worldScale] = UsdUtil::glmToUsdrtMatrixDecomposed(localToUsdTransform);
 
     (void)worldPosition;
     (void)worldOrientation;
@@ -404,11 +404,11 @@ void convertPrimitiveToUsd(
     // after step 4 and we need to recompute _worldPosition, _worldOrientation, _worldScale
     // Note that _worldPosition, _worldOrientation, _worldScale override _localMatrix
     // See http://omniverse-docs.s3-website-us-east-1.amazonaws.com/usdrt/5.0.0/docs/omnihydra_xforms.html
-    // const auto xform = usdrt::RtXformable(prim);
-    // xform.CreateLocalMatrixAttr(glmToUsdrtMatrix(localToEcefTransform));
-    // xform.CreateWorldPositionAttr(worldPosition);
-    // xform.CreateWorldOrientationAttr(worldOrientation);
-    // xform.CreateWorldScaleAttr(worldScale);
+    const auto xform = usdrt::RtXformable(prim);
+    xform.CreateLocalMatrixAttr(UsdUtil::glmToUsdrtMatrix(localToEcefTransform));
+    xform.CreateWorldPositionAttr(worldPosition);
+    xform.CreateWorldOrientationAttr(worldOrientation);
+    xform.CreateWorldScaleAttr(worldScale);
 
     // TODO: normals
     prim.CreateAttribute(faceVertexCountsToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
@@ -496,7 +496,7 @@ void createUsdrtPrims(
     const glm::dmat4& tileTransform,
     const std::string& tilesetName,
     const CesiumGltf::Model& model) {
-    const auto stage = getUsdrtStage(stageId);
+    const auto stage = UsdUtil::getUsdrtStage(stageId);
 
     const auto gltfToEcefTransform = tileTransform * CesiumGeometry::AxisTransforms::Y_UP_TO_Z_UP;
     const auto parentTransform = glm::dmat4(1.0);
@@ -540,4 +540,4 @@ void createUsdrtPrims(
         }
     }
 }
-} // namespace cesium::omniverse
+} // namespace cesium::omniverse::GltfToUsd
