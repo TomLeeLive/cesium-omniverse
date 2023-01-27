@@ -16,20 +16,20 @@
 #include <Cesium3DTilesSelection/ViewState.h>
 #include <pxr/usd/usd/prim.h>
 #include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdGeom/xform.h>
 
 namespace cesium::omniverse {
 
 struct InitializeTilesetResult {
     Cesium3DTilesSelection::TilesetExternals tilesetExternals;
     std::shared_ptr<RenderResourcesPreparer> renderResourcesPreparer;
-    pxr::SdfPath usdPath;
     Cesium3DTilesSelection::TilesetOptions options;
 };
 
 namespace {
-InitializeTilesetResult initializeTileset(const std::string& name, long stageId) {
-    auto stage = getUsdStage(stageId);
-    const auto usdPath = stage->GetPseudoRoot().GetPath().AppendChild(pxr::TfToken(name));
+InitializeTilesetResult initializeTileset(long stageId, const pxr::SdfPath& usdPath) {
+    const auto stage = getUsdStage(stageId);
+    pxr::UsdGeomXform::Define(stage, usdPath);
     const auto renderResourcesPreparer = std::make_shared<RenderResourcesPreparer>();
     auto& context = Context::instance();
     auto asyncSystem = CesiumAsync::AsyncSystem(context.getTaskProcessor());
@@ -59,19 +59,19 @@ InitializeTilesetResult initializeTileset(const std::string& name, long stageId)
         CESIUM_LOG_ERROR(error.message);
     };
 
-    return InitializeTilesetResult{externals, renderResourcesPreparer, usdPath, options};
+    return InitializeTilesetResult{externals, renderResourcesPreparer, options};
 }
 } // namespace
 
-OmniTileset::OmniTileset(const std::string& name, long stageId, const std::string& url) {
-    const auto& [externals, renderResourcesPreparer, usdPath, options] = initializeTileset(name, stageId);
+OmniTileset::OmniTileset(long stageId, const pxr::SdfPath& usdPath, const std::string& url) {
+    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath);
     _renderResourcesPreparer = renderResourcesPreparer;
     _tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(externals, url, options);
     _usdPath = usdPath;
 }
 
-OmniTileset::OmniTileset(const std::string& name, long stageId, int64_t ionId, const std::string& ionToken) {
-    const auto& [externals, renderResourcesPreparer, usdPath, options] = initializeTileset(name, stageId);
+OmniTileset::OmniTileset(long stageId, const pxr::SdfPath& usdPath, int64_t ionId, const std::string& ionToken) {
+    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath);
     _renderResourcesPreparer = renderResourcesPreparer;
     _tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(externals, ionId, ionToken, options);
     _usdPath = usdPath;

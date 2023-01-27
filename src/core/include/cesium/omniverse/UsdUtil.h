@@ -27,6 +27,8 @@ Decomposed glmToUsdrtMatrixDecomposed(const glm::dmat4& matrix);
 glm::dmat4 computeUsdWorldTransform(long stageId, const pxr::SdfPath& path);
 pxr::TfToken getUsdUpAxis(long stageId);
 double getUsdMetersPerUnit(long stageId);
+pxr::SdfPath getChildOfRootPath(long stageId, const std::string& name);
+pxr::SdfPath getChildOfRootPathUnique(long stageId, const std::string& name);
 
 // TODO: are these not generic enough to belong in this file?
 void updatePrimTransforms(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform);

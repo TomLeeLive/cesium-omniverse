@@ -19,6 +19,8 @@
 
 namespace cesium::omniverse {
 
+namespace {} // namespace
+
 Context& Context::instance() {
     static Context context;
     return context;
@@ -76,14 +78,16 @@ std::shared_ptr<spdlog::logger> Context::getLogger() {
 int Context::addTilesetUrl(long stageId, const std::string& url) {
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_{}", tilesetId);
-    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(tilesetName, stageId, url)});
+    const auto tilesetUsdPath = getChildOfRootPathUnique(stageId, tilesetName);
+    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(stageId, tilesetUsdPath, url)});
     return tilesetId;
 }
 
 int Context::addTilesetIon(long stageId, int64_t ionId, const std::string& ionToken) {
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_ion_{}", ionId);
-    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(tilesetName, stageId, ionId, ionToken)});
+    const auto tilesetUsdPath = getChildOfRootPathUnique(stageId, tilesetName);
+    _tilesets.insert({tilesetId, std::make_unique<OmniTileset>(stageId, tilesetUsdPath, ionId, ionToken)});
     return tilesetId;
 }
 

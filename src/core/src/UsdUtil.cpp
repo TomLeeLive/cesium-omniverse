@@ -3,6 +3,8 @@
 #include "cesium/omniverse/UsdUtil.h"
 
 #include <glm/gtx/matrix_decompose.hpp>
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usd/stage.h>
 #include <pxr/usd/usd/timeCode.h>
 #include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/xform.h>
@@ -153,6 +155,27 @@ double getUsdMetersPerUnit(long stageId) {
     const auto stage = getUsdStage(stageId);
     const auto metersPerUnit = pxr::UsdGeomGetStageMetersPerUnit(stage);
     return metersPerUnit;
+}
+
+pxr::SdfPath getChildOfRootPath(long stageId, const std::string& name) {
+    const auto stage = getUsdStage(stageId);
+    return stage->GetPseudoRoot().GetPath().AppendChild(pxr::TfToken(name));
+}
+
+pxr::SdfPath getChildOfRootPathUnique(long stageId, const std::string& name) {
+    const auto stage = getUsdStage(stageId);
+    pxr::UsdPrim prim;
+    pxr::SdfPath path;
+    auto copy = 0;
+
+    do {
+        const auto copyName = copy > 0 ? fmt::format("{}_{}", name, copy) : name;
+        path = getChildOfRootPath(stageId, name);
+        prim = stage->GetPrimAtPath(path);
+        copy++;
+    } while (prim.IsValid());
+
+    return path;
 }
 
 void updatePrimTransforms(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform) {
