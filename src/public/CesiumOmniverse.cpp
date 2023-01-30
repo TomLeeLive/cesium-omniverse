@@ -154,41 +154,104 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     void addCubeFabric(long stageId) noexcept override {
         auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
-        carb::flatcache::Path primPath("/example_prim_fabric");
-        carb::flatcache::Token faceVertexCountsToken("faceVertexCounts");
-        carb::flatcache::Token faceVertexIndicesToken("faceVertexIndices");
-        carb::flatcache::Token pointsToken("points");
-        carb::flatcache::Token worldExtentToken("_worldExtent");
+        const carb::flatcache::Path primPath("/example_prim_fabric");
+
+        const carb::flatcache::Token faceVertexCountsToken("faceVertexCounts");
+        const carb::flatcache::Token faceVertexIndicesToken("faceVertexIndices");
+        const carb::flatcache::Token pointsToken("points");
+        const carb::flatcache::Token worldExtentToken("_worldExtent");
+        const carb::flatcache::Token visibilityToken("visibility");
+        const carb::flatcache::Token primvarsToken("primvars");
+        const carb::flatcache::Token primvarInterpolationsToken("primvarInterpolations");
+        const carb::flatcache::Token displayColorToken("primvars:displayColor");
+        const carb::flatcache::Token meshToken("Mesh");
+        const carb::flatcache::Token constantToken("constant");
+
+        const carb::flatcache::Type faceVertexCountsType(
+            carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+        const carb::flatcache::Type faceVertexIndicesType(
+            carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+        const carb::flatcache::Type pointsType(
+            carb::flatcache::BaseDataType::eFloat, 3, 1, carb::flatcache::AttributeRole::ePosition);
+
+        const carb::flatcache::Type worldExtentType(
+            carb::flatcache::BaseDataType::eDouble, 6, 0, carb::flatcache::AttributeRole::eNone);
+
+        const carb::flatcache::Type visibilityType(
+            carb::flatcache::BaseDataType::eBool, 1, 0, carb::flatcache::AttributeRole::eNone);
+
+        const carb::flatcache::Type primvarsType(
+            carb::flatcache::BaseDataType::eToken, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+        const carb::flatcache::Type primvarInterpolationsType(
+            carb::flatcache::BaseDataType::eToken, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+        const carb::flatcache::Type displayColorType(
+            carb::flatcache::BaseDataType::eFloat, 3, 1, carb::flatcache::AttributeRole::eColor);
+
+        const carb::flatcache::Type meshType(
+            carb::flatcache::BaseDataType::eTag, 1, 0, carb::flatcache::AttributeRole::ePrimTypeName);
 
         stageInProgress.createPrim(primPath);
-        stageInProgress.createAttribute(
+        stageInProgress.createAttributes(
             primPath,
-            faceVertexCountsToken,
-            carb::flatcache::Type(carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone));
-        stageInProgress.createAttribute(
-            primPath,
-            faceVertexIndicesToken,
-            carb::flatcache::Type(carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone));
-
-        stageInProgress.createAttribute(
-            primPath,
-            pointsToken,
-            carb::flatcache::Type(
-                carb::flatcache::BaseDataType::eFloat, 3, 1, carb::flatcache::AttributeRole::ePosition));
-
-        stageInProgress.createAttribute(
-            primPath,
-            worldExtentToken,
-            carb::flatcache::Type(carb::flatcache::BaseDataType::eDouble, 6, 0, carb::flatcache::AttributeRole::eNone));
+            std::array<carb::flatcache::AttrNameAndType, 9>{
+                carb::flatcache::AttrNameAndType{
+                    faceVertexCountsType,
+                    faceVertexCountsToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    faceVertexIndicesType,
+                    faceVertexIndicesToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    pointsType,
+                    pointsToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    worldExtentType,
+                    worldExtentToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    visibilityType,
+                    visibilityToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    primvarsType,
+                    primvarsToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    primvarInterpolationsType,
+                    primvarInterpolationsToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    displayColorType,
+                    displayColorToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    meshType,
+                    meshToken,
+                },
+            });
 
         stageInProgress.setArrayAttributeSize(primPath, faceVertexCountsToken, 6);
         stageInProgress.setArrayAttributeSize(primPath, faceVertexIndicesToken, 24);
         stageInProgress.setArrayAttributeSize(primPath, pointsToken, 8);
+        stageInProgress.setArrayAttributeSize(primPath, primvarsToken, 1);
+        stageInProgress.setArrayAttributeSize(primPath, primvarInterpolationsToken, 1);
+        stageInProgress.setArrayAttributeSize(primPath, displayColorToken, 1);
 
-        auto faceVertexCounts = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexCountsToken);
-        auto faceVertexIndices = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexIndicesToken);
-        auto points = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, pointsToken);
-        auto worldExtent = stageInProgress.getAttributeWr<usdrt::GfRange3d>(primPath, worldExtentToken);
+        const auto faceVertexCounts = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexCountsToken);
+        const auto faceVertexIndices = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexIndicesToken);
+        const auto points = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, pointsToken);
+        const auto worldExtent = stageInProgress.getAttributeWr<usdrt::GfRange3d>(primPath, worldExtentToken);
+        const auto visibility = stageInProgress.getAttributeWr<bool>(primPath, visibilityToken);
+        const auto primvars = stageInProgress.getArrayAttributeWr<carb::flatcache::TokenC>(primPath, primvarsToken);
+        const auto primvarInterpolations =
+            stageInProgress.getArrayAttributeWr<carb::flatcache::TokenC>(primPath, primvarInterpolationsToken);
+        const auto displayColor = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, displayColorToken);
 
         faceVertexCounts[0] = 4;
         faceVertexCounts[1] = 4;
@@ -228,11 +291,16 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         points[3] = usdrt::GfVec3f(-1.0, 1.0, 1.0);
         points[4] = usdrt::GfVec3f(1.0, -1.0, -1.0);
         points[5] = usdrt::GfVec3f(1.0, -1.0, 1.0);
-        points[6] = usdrt::GfVec3f(1.0, -1.0, 1.0);
+        points[6] = usdrt::GfVec3f(1.0, 1.0, -1.0);
         points[7] = usdrt::GfVec3f(1.0, 1.0, 1.0);
 
         worldExtent->SetMin(usdrt::GfVec3d(-1.0, -1.0, -1.0));
         worldExtent->SetMax(usdrt::GfVec3d(1.0, 1.0, 1.0));
+
+        *visibility = true;
+        primvars[0] = carb::flatcache::TokenC(displayColorToken);
+        primvarInterpolations[0] = carb::flatcache::TokenC(constantToken);
+        displayColor[0] = usdrt::GfVec3f(1.0, 0.0, 0.0);
     }
 
     void showCubeUsdrt(long stageId) noexcept override {

@@ -236,6 +236,19 @@ std::ostream& operator<<(std::ostream& os, const TokenWrapper& tokenWrapper) {
     return os;
 }
 
+class BoolWrapper {
+  private:
+    bool value;
+
+  public:
+    friend std::ostream& operator<<(std::ostream& os, const BoolWrapper& boolWrapper);
+};
+
+std::ostream& operator<<(std::ostream& os, const BoolWrapper& boolWrapper) {
+    os << boolWrapper.value ? "true" : "false";
+    return os;
+}
+
 template <typename T>
 std::string printAttributeValuePtr(const T* const values, const uint64_t elementCount, const uint64_t componentCount) {
     std::stringstream stream;
@@ -486,10 +499,12 @@ std::string printFabricStage(long stageId) {
                     const auto attributeType = attribute.type;
                     const auto baseType = attributeType.baseType;
                     const auto componentCount = attributeType.componentCount;
+                    const auto role = attributeType.role;
                     const auto name = attribute.name;
                     const auto arrayDepth = attributeType.arrayDepth;
                     const auto attributeNameString = name.getString();
                     const auto attributeTypeString = attributeType.getTypeName();
+                    const auto roleString = (std::stringstream() << role).str();
 
                     std::string attributeValue;
 
@@ -511,8 +526,7 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eBool: {
                                 switch (componentCount) {
                                     case 1: {
-                                        // TODO: check that bool works
-                                        attributeValue = printAttributeValue<false, bool, 1>(sip, primPath, name);
+                                        attributeValue = printAttributeValue<false, BoolWrapper, 1>(sip, primPath, name);
                                         break;
                                     }
                                 }
@@ -645,7 +659,7 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eBool: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, bool, 1>(sip, primPath, name);
+                                        attributeValue = printAttributeValue<true, BoolWrapper, 1>(sip, primPath, name);
                                         break;
                                     }
                                 }
@@ -771,6 +785,7 @@ std::string printFabricStage(long stageId) {
 
                     stream << fmt::format("{}Attribute: {}\n", attributeSpaces, attributeNameString);
                     stream << fmt::format("{}Type: {}\n", attributeInfoSpaces, attributeTypeString);
+                    stream << fmt::format("{}Role: {}\n", attributeInfoSpaces, roleString);
 
                     if (baseType != carb::flatcache::BaseDataType::eTag) {
                         stream << fmt::format("{}Value: {}\n", attributeInfoSpaces, attributeValue);
