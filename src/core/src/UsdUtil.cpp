@@ -249,6 +249,10 @@ std::ostream& operator<<(std::ostream& os, const BoolWrapper& boolWrapper) {
     return os;
 }
 
+template <typename T> std::string toString(const T& value) {
+    return (std::stringstream() << value).str();
+}
+
 template <typename T>
 std::string printAttributeValuePtr(const T* const values, const uint64_t elementCount, const uint64_t componentCount) {
     std::stringstream stream;
@@ -504,7 +508,7 @@ std::string printFabricStage(long stageId) {
                     const auto arrayDepth = attributeType.arrayDepth;
                     const auto attributeNameString = name.getString();
                     const auto attributeTypeString = attributeType.getTypeName();
-                    const auto roleString = (std::stringstream() << role).str();
+                    const auto roleString = toString(role);
 
                     std::string attributeValue;
 
@@ -526,7 +530,8 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eBool: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, BoolWrapper, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValue<false, BoolWrapper, 1>(sip, primPath, name);
                                         break;
                                     }
                                 }

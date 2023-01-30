@@ -10,6 +10,25 @@
 
 namespace cesium::omniverse {
 
+namespace {
+void createUsdrtPrims(
+    int stageId,
+    const OmniTileset& tileset,
+    uint64_t tileId,
+    const glm::dmat4& transform,
+    const CesiumGltf::Model& model) {
+    GltfToUsd::createUsdrtPrims(
+        stageId,
+        tileset.getId(),
+        tileId,
+        CoordinateSystemUtil::computeEcefToUsdTransformForPrim(
+            stageId, Context::instance().getGeoreferenceOrigin(), tileset.getUsdPath()),
+        transform,
+        tileset.getUsdPath().GetName(), // TODO: might need to be path
+        model);
+}
+} // namespace
+
 RenderResourcesPreparer::RenderResourcesPreparer(long stageId, const OmniTileset& tileset)
     : _stageId(stageId)
     , _tileset(tileset) {}
@@ -20,31 +39,17 @@ RenderResourcesPreparer::prepareInLoadThread(
     Cesium3DTilesSelection::TileLoadResult&& tileLoadResult,
     const glm::dmat4& transform,
     [[maybe_unused]] const std::any& rendererOptions) {
-    // TODO: handle gltf up axis
     // TODO: unlit
     // TODO: don't want to do this in main thread
     const auto pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
-    if (!pModel)
+    if (!pModel) {
         return asyncSystem.createResolvedFuture(
             Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
+    }
 
     return asyncSystem.runInMainThread([this, asyncSystem, transform, tileLoadResult = std::move(tileLoadResult)]() {
         const auto pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
-        if (!pModel) {
-            return asyncSystem.createResolvedFuture(
-                Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
-        }
-
-        GltfToUsd::createUsdrtPrims(
-            _stageId,
-            _tileset.getId(),
-            _tileCount++,
-            CoordinateSystemUtil::computeEcefToUsdTransformForPrim(
-                _stageId, Context::instance().getGeoreferenceOrigin(), _tileset.getUsdPath()),
-            transform,
-            _tileset.getUsdPath().GetName(), // TODO: might need to be path
-            *pModel);
-
+        createUsdrtPrims(_stageId, _tileset, _tileCount++, transform, *pModel);
         return asyncSystem.createResolvedFuture(
             Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
     });

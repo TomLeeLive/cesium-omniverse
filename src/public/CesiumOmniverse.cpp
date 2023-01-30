@@ -17,6 +17,7 @@
 #include <pxr/usd/usd/stage.h>
 #include <usdrt/scenegraph/base/gf/range3d.h>
 #include <usdrt/scenegraph/base/gf/vec3f.h>
+#include <usdrt/scenegraph/usd/rt/xformable.h>
 #include <usdrt/scenegraph/usd/sdf/types.h>
 #include <usdrt/scenegraph/usd/usd/stage.h>
 
@@ -78,9 +79,20 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     void addCubeUsdrt(long stageId) noexcept override {
         const auto stage = UsdUtil::getUsdrtStage(stageId);
 
-        // Create a cube prim.
         const usdrt::SdfPath primPath("/example_prim_usdrt");
-        const usdrt::UsdPrim prim = stage->DefinePrim(primPath, usdrt::TfToken("Mesh"));
+
+        const usdrt::TfToken faceVertexCountsToken("faceVertexCounts");
+        const usdrt::TfToken faceVertexIndicesToken("faceVertexIndices");
+        const usdrt::TfToken pointsToken("points");
+        const usdrt::TfToken worldExtentToken("_worldExtent");
+        const usdrt::TfToken visibilityToken("visibility");
+        const usdrt::TfToken primvarsToken("primvars");
+        const usdrt::TfToken primvarInterpolationsToken("primvarInterpolations");
+        const usdrt::TfToken displayColorToken("primvars:displayColor");
+        const usdrt::TfToken meshToken("Mesh");
+        const usdrt::TfToken constantToken("constant");
+
+        const usdrt::UsdPrim prim = stage->DefinePrim(primPath, meshToken);
 
         const usdrt::VtArray<int> faceVertexCounts = {4, 4, 4, 4, 4, 4};
         const usdrt::VtArray<int> faceVertexIndices = {
@@ -101,23 +113,28 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
         usdrt::GfRange3d range(usdrt::GfVec3d(-1.0, -1.0, -1.0), usdrt::GfVec3d(1.0, 1.0, 1.0));
 
-        // clang-format off
-        prim.CreateAttribute(usdrt::TfToken("faceVertexCounts"), usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
-        prim.CreateAttribute(usdrt::TfToken("faceVertexIndices"), usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexIndices);
-        prim.CreateAttribute(usdrt::TfToken("points"), usdrt::SdfValueTypeNames->Point3fArray, false).Set(points);
-        prim.CreateAttribute(usdrt::TfToken("primvars:displayColor"), usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
-        prim.CreateAttribute(usdrt::TfToken("_worldExtent"), usdrt::SdfValueTypeNames->Range3d, false).Set(range);
-        prim.CreateAttribute(usdrt::TfToken("visibility"), usdrt::SdfValueTypeNames->Bool, false).Set(true);
+        prim.CreateAttribute(faceVertexCountsToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
+        prim.CreateAttribute(faceVertexIndicesToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexIndices);
+        prim.CreateAttribute(pointsToken, usdrt::SdfValueTypeNames->Point3fArray, false).Set(points);
+        prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
+        prim.CreateAttribute(worldExtentToken, usdrt::SdfValueTypeNames->Range3d, false).Set(range);
+        prim.CreateAttribute(visibilityToken, usdrt::SdfValueTypeNames->Bool, false).Set(true);
 
         // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
         // new TokenArray attributes, "primvars", and "primvarInterpolations", which are used internally by Fabric
         // Scene Delegate. This is a workaround until UsdGeomMesh and UsdGeomPrimvarsAPI become available in USDRT.
-        const usdrt::VtArray<carb::flatcache::TokenC> primvars = {carb::flatcache::TokenC(usdrt::TfToken("primvars:displayColor"))};
-        const usdrt::VtArray<carb::flatcache::TokenC> primvarInterp = {carb::flatcache::TokenC(usdrt::TfToken("constant"))};
+        const usdrt::VtArray<carb::flatcache::TokenC> primvars = {carb::flatcache::TokenC(displayColorToken)};
+        const usdrt::VtArray<carb::flatcache::TokenC> primvarInterp = {carb::flatcache::TokenC(constantToken)};
 
-        prim.CreateAttribute(usdrt::TfToken("primvars"), usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
-        prim.CreateAttribute(usdrt::TfToken("primvarInterpolations"), usdrt::SdfValueTypeNames->TokenArray, false).Set(primvarInterp);
-        // clang-format on
+        prim.CreateAttribute(primvarsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
+        prim.CreateAttribute(primvarInterpolationsToken, usdrt::SdfValueTypeNames->TokenArray, false)
+            .Set(primvarInterp);
+
+        const auto xform = usdrt::RtXformable(prim);
+        xform.CreateLocalMatrixAttr(UsdUtil::glmToUsdrtMatrix(glm::dmat4(1.0)));
+        xform.CreateWorldPositionAttr(usdrt::GfVec3d(0.0, 0.0, 0.0));
+        xform.CreateWorldOrientationAttr(usdrt::GfQuatf(1.0));
+        xform.CreateWorldScaleAttr(usdrt::GfVec3f(1.0));
     }
 
     void addCubeUsd(long stageId) noexcept override {
@@ -166,6 +183,10 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const carb::flatcache::Token displayColorToken("primvars:displayColor");
         const carb::flatcache::Token meshToken("Mesh");
         const carb::flatcache::Token constantToken("constant");
+        const carb::flatcache::Token worldPositionToken("_worldPosition");
+        const carb::flatcache::Token worldOrientationToken("_worldOrientation");
+        const carb::flatcache::Token worldScaleToken("_worldScale");
+        const carb::flatcache::Token localMatrixToken("_localMatrix");
 
         const carb::flatcache::Type faceVertexCountsType(
             carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone);
@@ -194,10 +215,22 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const carb::flatcache::Type meshType(
             carb::flatcache::BaseDataType::eTag, 1, 0, carb::flatcache::AttributeRole::ePrimTypeName);
 
+        const carb::flatcache::Type worldPositionType(
+            carb::flatcache::BaseDataType::eDouble, 3, 0, carb::flatcache::AttributeRole::eNone);
+
+        const carb::flatcache::Type worldOrientationType(
+            carb::flatcache::BaseDataType::eFloat, 4, 0, carb::flatcache::AttributeRole::eQuaternion);
+
+        const carb::flatcache::Type worldScaleType(
+            carb::flatcache::BaseDataType::eFloat, 3, 0, carb::flatcache::AttributeRole::eVector);
+
+        const carb::flatcache::Type localMatrixType(
+            carb::flatcache::BaseDataType::eDouble, 16, 0, carb::flatcache::AttributeRole::eMatrix);
+
         stageInProgress.createPrim(primPath);
         stageInProgress.createAttributes(
             primPath,
-            std::array<carb::flatcache::AttrNameAndType, 9>{
+            std::array<carb::flatcache::AttrNameAndType, 13>{
                 carb::flatcache::AttrNameAndType{
                     faceVertexCountsType,
                     faceVertexCountsToken,
@@ -234,6 +267,22 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
                     meshType,
                     meshToken,
                 },
+                carb::flatcache::AttrNameAndType{
+                    worldPositionType,
+                    worldPositionToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    worldOrientationType,
+                    worldOrientationToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    worldScaleType,
+                    worldScaleToken,
+                },
+                carb::flatcache::AttrNameAndType{
+                    localMatrixType,
+                    localMatrixToken,
+                },
             });
 
         stageInProgress.setArrayAttributeSize(primPath, faceVertexCountsToken, 6);
@@ -252,6 +301,10 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const auto primvarInterpolations =
             stageInProgress.getArrayAttributeWr<carb::flatcache::TokenC>(primPath, primvarInterpolationsToken);
         const auto displayColor = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, displayColorToken);
+        const auto worldPosition = stageInProgress.getAttributeWr<usdrt::GfVec3d>(primPath, worldPositionToken);
+        const auto worldOrientation = stageInProgress.getAttributeWr<usdrt::GfQuatf>(primPath, worldOrientationToken);
+        const auto worldScale = stageInProgress.getAttributeWr<usdrt::GfVec3f>(primPath, worldScaleToken);
+        const auto localMatrix = stageInProgress.getAttributeWr<usdrt::GfMatrix4d>(primPath, localMatrixToken);
 
         faceVertexCounts[0] = 4;
         faceVertexCounts[1] = 4;
@@ -301,6 +354,10 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         primvars[0] = carb::flatcache::TokenC(displayColorToken);
         primvarInterpolations[0] = carb::flatcache::TokenC(constantToken);
         displayColor[0] = usdrt::GfVec3f(1.0, 0.0, 0.0);
+        *worldPosition = usdrt::GfVec3d(0.0, 0.0, 0.0);
+        *worldOrientation = usdrt::GfQuatf(1.0);
+        *worldScale = usdrt::GfVec3f(1.0);
+        *localMatrix = UsdUtil::glmToUsdrtMatrix(glm::dmat4(1.0));
     }
 
     void showCubeUsdrt(long stageId) noexcept override {

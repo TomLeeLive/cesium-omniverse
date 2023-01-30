@@ -326,7 +326,19 @@ getPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive&
     return getUVs(model, primitive, "TEXCOORD", setIndex, true);
 }
 
-void convertPrimitiveToUsd(
+usdrt::VtArray<int> getFaceVertexCounts(const usdrt::VtArray<int>& indices) {
+    const auto faceCount = indices.size() / 3;
+    usdrt::VtArray<int> faceVertexCounts;
+    faceVertexCounts.reserve(faceCount);
+
+    for (auto i = 0; i < faceCount; i++) {
+        faceVertexCounts.push_back(3);
+    }
+
+    return faceVertexCounts;
+}
+
+void convertPrimitiveToUsdrt(
     const usdrt::UsdStageRefPtr& stage,
     int tilesetId,
     const std::string& primName,
@@ -336,46 +348,39 @@ void convertPrimitiveToUsd(
     const CesiumGltf::Model& model,
     const CesiumGltf::MeshPrimitive& primitive) {
 
-    usdrt::VtArray<usdrt::GfVec3f> positions = getPrimitivePositions(model, primitive);
-    usdrt::VtArray<int> indices = getPrimitiveIndices(model, primitive, positions);
-    usdrt::VtArray<usdrt::GfVec3f> normals = getPrimitiveNormals(model, primitive, positions, indices);
-    usdrt::VtArray<usdrt::GfVec2f> st0 = getPrimitiveUVs(model, primitive, 0);
-    usdrt::VtArray<usdrt::GfVec2f> st1 = getPrimitiveUVs(model, primitive, 1);
-
-    // TODO: does world extent actually have to be the world extent after transformations have been applied?
-    std::optional<usdrt::GfRange3d> worldExtent = getPrimitiveExtent(model, primitive);
+    const auto positions = getPrimitivePositions(model, primitive);
+    const auto indices = getPrimitiveIndices(model, primitive, positions);
+    const auto normals = getPrimitiveNormals(model, primitive, positions, indices);
+    const auto st0 = getPrimitiveUVs(model, primitive, 0);
+    const auto st1 = getPrimitiveUVs(model, primitive, 1);
+    const auto worldExtent = getPrimitiveExtent(model, primitive);
+    const auto faceVertexCounts = getFaceVertexCounts(indices);
 
     if (positions.empty() || indices.empty() || normals.empty() || !worldExtent.has_value()) {
         return;
     }
 
-    const auto faceCount = indices.size() / 3;
-    usdrt::VtArray<int> faceVertexCounts;
-    faceVertexCounts.reserve(faceCount);
+    const usdrt::SdfPath primPath(fmt::format("/{}", primName));
 
-    for (auto i = 0; i < faceCount; i++) {
-        faceVertexCounts.push_back(3);
-    }
+    const usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
 
-    usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
-
-    auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
-    auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
-    auto [worldPosition, worldOrientation, worldScale] = UsdUtil::glmToUsdrtMatrixDecomposed(localToUsdTransform);
+    const auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
+    const auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
+    const auto [worldPosition, worldOrientation, worldScale] = UsdUtil::glmToUsdrtMatrixDecomposed(localToUsdTransform);
 
     // TODO: precreate tokens
-    usdrt::TfToken meshToken("Mesh");
-    usdrt::TfToken faceVertexCountsToken("faceVertexCounts");
-    usdrt::TfToken faceVertexIndicesToken("faceVertexIndices");
-    usdrt::TfToken pointsToken("points");
-    usdrt::TfToken displayColorToken("primvars:displayColor");
-    usdrt::TfToken worldExtentToken("_worldExtent");
-    usdrt::TfToken constantToken("constant");
-    usdrt::TfToken primvarsToken("primvars");
-    usdrt::TfToken primvarInterpolationsToken("primvarInterpolations");
-    usdrt::TfToken tilesetIdToken("_tilesetId");
+    const usdrt::TfToken faceVertexCountsToken("faceVertexCounts");
+    const usdrt::TfToken faceVertexIndicesToken("faceVertexIndices");
+    const usdrt::TfToken pointsToken("points");
+    const usdrt::TfToken worldExtentToken("_worldExtent");
+    const usdrt::TfToken visibilityToken("visibility");
+    const usdrt::TfToken constantToken("constant");
+    const usdrt::TfToken primvarsToken("primvars");
+    const usdrt::TfToken primvarInterpolationsToken("primvarInterpolations");
+    const usdrt::TfToken displayColorToken("primvars:displayColor");
+    const usdrt::TfToken meshToken("Mesh");
+    const usdrt::TfToken tilesetIdToken("_tilesetId");
 
-    const usdrt::SdfPath primPath(fmt::format("/{}", primName));
     const usdrt::UsdPrim prim = stage->DefinePrim(primPath, meshToken);
 
     // localToUsdTransform = transform glTF local position to USD world position
@@ -404,8 +409,9 @@ void convertPrimitiveToUsd(
     prim.CreateAttribute(faceVertexCountsToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
     prim.CreateAttribute(faceVertexIndicesToken, usdrt::SdfValueTypeNames->IntArray, false).Set(indices);
     prim.CreateAttribute(pointsToken, usdrt::SdfValueTypeNames->Point3fArray, false).Set(positions);
-    prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
     prim.CreateAttribute(worldExtentToken, usdrt::SdfValueTypeNames->Range3d, false).Set(worldExtent.value());
+    prim.CreateAttribute(visibilityToken, usdrt::SdfValueTypeNames->Bool, false).Set(true);
+    prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
     prim.CreateAttribute(tilesetIdToken, usdrt::SdfValueTypeNames->Int, true).Set(tilesetId);
 
     // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
@@ -416,6 +422,199 @@ void convertPrimitiveToUsd(
 
     prim.CreateAttribute(primvarsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
     prim.CreateAttribute(primvarInterpolationsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvarInterp);
+}
+
+void convertPrimitiveToFabric(
+    carb::flatcache::StageInProgress& stageInProgress,
+    int tilesetId,
+    const std::string& primName,
+    const glm::dmat4& ecefToUsdTransform,
+    const glm::dmat4& gltfToEcefTransform,
+    const glm::dmat4& nodeTransform,
+    const CesiumGltf::Model& model,
+    const CesiumGltf::MeshPrimitive& primitive) {
+
+    auto positions = getPrimitivePositions(model, primitive);
+    auto indices = getPrimitiveIndices(model, primitive, positions);
+    auto normals = getPrimitiveNormals(model, primitive, positions, indices);
+    auto st0 = getPrimitiveUVs(model, primitive, 0);
+    auto st1 = getPrimitiveUVs(model, primitive, 1);
+    auto worldExtent = getPrimitiveExtent(model, primitive);
+    auto faceVertexCounts = getFaceVertexCounts(indices);
+
+    if (positions.empty() || indices.empty() || normals.empty() || !worldExtent.has_value()) {
+        return;
+    }
+
+    const carb::flatcache::Path primPath(fmt::format("/{}", primName).c_str());
+
+    const auto displayColor = usdrt::GfVec3f(1.0, 0.0, 0.0);
+
+    auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
+    auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
+    auto [worldPosition, worldOrientation, worldScale] = UsdUtil::glmToUsdrtMatrixDecomposed(localToUsdTransform);
+
+    // TODO: precreate tokens
+    const carb::flatcache::Token faceVertexCountsToken("faceVertexCounts");
+    const carb::flatcache::Token faceVertexIndicesToken("faceVertexIndices");
+    const carb::flatcache::Token pointsToken("points");
+    const carb::flatcache::Token worldExtentToken("_worldExtent");
+    const carb::flatcache::Token visibilityToken("visibility");
+    const carb::flatcache::Token constantToken("constant");
+    const carb::flatcache::Token primvarsToken("primvars");
+    const carb::flatcache::Token primvarInterpolationsToken("primvarInterpolations");
+    const carb::flatcache::Token displayColorToken("primvars:displayColor");
+    const carb::flatcache::Token meshToken("Mesh");
+    const carb::flatcache::Token tilesetIdToken("_tilesetId");
+    const carb::flatcache::Token worldPositionToken("_worldPosition");
+    const carb::flatcache::Token worldOrientationToken("_worldOrientation");
+    const carb::flatcache::Token worldScaleToken("_worldScale");
+    const carb::flatcache::Token localMatrixToken("_localMatrix");
+
+    const carb::flatcache::Type faceVertexCountsType(
+        carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type faceVertexIndicesType(
+        carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type pointsType(
+        carb::flatcache::BaseDataType::eFloat, 3, 1, carb::flatcache::AttributeRole::ePosition);
+
+    const carb::flatcache::Type worldExtentType(
+        carb::flatcache::BaseDataType::eDouble, 6, 0, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type visibilityType(
+        carb::flatcache::BaseDataType::eBool, 1, 0, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type primvarsType(
+        carb::flatcache::BaseDataType::eToken, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type primvarInterpolationsType(
+        carb::flatcache::BaseDataType::eToken, 1, 1, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type displayColorType(
+        carb::flatcache::BaseDataType::eFloat, 3, 1, carb::flatcache::AttributeRole::eColor);
+
+    const carb::flatcache::Type meshType(
+        carb::flatcache::BaseDataType::eTag, 1, 0, carb::flatcache::AttributeRole::ePrimTypeName);
+
+    const carb::flatcache::Type tilesetIdType(
+        carb::flatcache::BaseDataType::eInt, 1, 0, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type worldPositionType(
+        carb::flatcache::BaseDataType::eDouble, 3, 0, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type worldOrientationType(
+        carb::flatcache::BaseDataType::eFloat, 4, 0, carb::flatcache::AttributeRole::eQuaternion);
+
+    const carb::flatcache::Type worldScaleType(
+        carb::flatcache::BaseDataType::eFloat, 3, 0, carb::flatcache::AttributeRole::eVector);
+
+    const carb::flatcache::Type localMatrixType(
+        carb::flatcache::BaseDataType::eDouble, 16, 0, carb::flatcache::AttributeRole::eMatrix);
+
+    stageInProgress.createPrim(primPath);
+
+    stageInProgress.createPrim(primPath);
+    stageInProgress.createAttributes(
+        primPath,
+        std::array<carb::flatcache::AttrNameAndType, 14>{
+            carb::flatcache::AttrNameAndType{
+                faceVertexCountsType,
+                faceVertexCountsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                faceVertexIndicesType,
+                faceVertexIndicesToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                pointsType,
+                pointsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                worldExtentType,
+                worldExtentToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                visibilityType,
+                visibilityToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                primvarsType,
+                primvarsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                primvarInterpolationsType,
+                primvarInterpolationsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                displayColorType,
+                displayColorToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                meshType,
+                meshToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                tilesetIdType,
+                tilesetIdToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                worldPositionType,
+                worldPositionToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                worldOrientationType,
+                worldOrientationToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                worldScaleType,
+                worldScaleToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                localMatrixType,
+                localMatrixToken,
+            },
+        });
+
+    stageInProgress.setArrayAttributeSize(primPath, faceVertexCountsToken, faceVertexCounts.size());
+    stageInProgress.setArrayAttributeSize(primPath, faceVertexIndicesToken, indices.size());
+    stageInProgress.setArrayAttributeSize(primPath, pointsToken, positions.size());
+    stageInProgress.setArrayAttributeSize(primPath, primvarsToken, 1);
+    stageInProgress.setArrayAttributeSize(primPath, primvarInterpolationsToken, 1);
+    stageInProgress.setArrayAttributeSize(primPath, displayColorToken, 1);
+
+    auto faceVertexCountsFabric = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexCountsToken);
+    auto faceVertexIndicesFabric = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexIndicesToken);
+    auto pointsFabric = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, pointsToken);
+    auto worldExtentFabric = stageInProgress.getAttributeWr<usdrt::GfRange3d>(primPath, worldExtentToken);
+    auto visibilityFabric = stageInProgress.getAttributeWr<bool>(primPath, visibilityToken);
+    auto primvarsFabric = stageInProgress.getArrayAttributeWr<carb::flatcache::TokenC>(primPath, primvarsToken);
+    auto primvarInterpolationsFabric =
+        stageInProgress.getArrayAttributeWr<carb::flatcache::TokenC>(primPath, primvarInterpolationsToken);
+    auto displayColorFabric = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, displayColorToken);
+    auto tilesetIdFabric = stageInProgress.getAttributeWr<int>(primPath, tilesetIdToken);
+    auto worldPositionFabric = stageInProgress.getAttributeWr<usdrt::GfVec3d>(primPath, worldPositionToken);
+    auto worldOrientationFabric = stageInProgress.getAttributeWr<usdrt::GfQuatf>(primPath, worldOrientationToken);
+    auto worldScaleFabric = stageInProgress.getAttributeWr<usdrt::GfVec3f>(primPath, worldScaleToken);
+    auto localMatrixFabric = stageInProgress.getAttributeWr<usdrt::GfMatrix4d>(primPath, localMatrixToken);
+
+    std::copy(faceVertexCounts.begin(), faceVertexCounts.end(), faceVertexCountsFabric.begin());
+    std::copy(indices.begin(), indices.end(), faceVertexIndicesFabric.begin());
+    std::copy(positions.begin(), positions.end(), pointsFabric.begin());
+
+    worldExtentFabric->SetMin(usdrt::GfVec3d(-1.0, -1.0, -1.0));
+    worldExtentFabric->SetMax(usdrt::GfVec3d(1.0, 1.0, 1.0));
+
+    *visibilityFabric = true;
+    primvarsFabric[0] = carb::flatcache::TokenC(displayColorToken);
+    primvarInterpolationsFabric[0] = carb::flatcache::TokenC(constantToken);
+    displayColorFabric[0] = displayColor;
+    *tilesetIdFabric = tilesetId;
+    *worldPositionFabric = worldPosition;
+    *worldOrientationFabric = worldOrientation;
+    *worldScaleFabric = worldScale;
+    *localMatrixFabric = UsdUtil::glmToUsdrtMatrix(localToEcefTransform);
 }
 } // namespace
 
@@ -428,6 +627,7 @@ void createUsdrtPrims(
     const std::string& tilesetName,
     const CesiumGltf::Model& model) {
     const auto stage = UsdUtil::getUsdrtStage(stageId);
+    auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
     auto gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyRtcCenter(model, tileTransform);
     gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyGltfUpAxisTransform(model, gltfToEcefTransform);
@@ -436,15 +636,31 @@ void createUsdrtPrims(
 
     model.forEachPrimitiveInScene(
         -1,
-        [&stage, &tilesetId, &tilesetName, &tileId, &primitiveId, &ecefToUsdTransform, &gltfToEcefTransform](
+        [&stage,
+         &stageInProgress,
+         &tilesetId,
+         &tilesetName,
+         &tileId,
+         &primitiveId,
+         &ecefToUsdTransform,
+         &gltfToEcefTransform](
             const CesiumGltf::Model& gltf,
             [[maybe_unused]] const CesiumGltf::Node& node,
             [[maybe_unused]] const CesiumGltf::Mesh& mesh,
             const CesiumGltf::MeshPrimitive& primitive,
             const glm::dmat4& transform) {
             const auto primName = fmt::format("{}_tile_{}_primitive_{}", tilesetName, tileId, primitiveId++);
-            convertPrimitiveToUsd(
-                stage, tilesetId, primName, ecefToUsdTransform, gltfToEcefTransform, transform, gltf, primitive);
+            // convertPrimitiveToUsdrt(
+            //     stage, tilesetId, primName, ecefToUsdTransform, gltfToEcefTransform, transform, gltf, primitive);
+            convertPrimitiveToFabric(
+                stageInProgress,
+                tilesetId,
+                primName,
+                ecefToUsdTransform,
+                gltfToEcefTransform,
+                transform,
+                gltf,
+                primitive);
         });
 }
 } // namespace cesium::omniverse::GltfToUsd
