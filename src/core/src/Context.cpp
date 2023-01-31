@@ -16,6 +16,7 @@
 #include <Cesium3DTilesSelection/Tileset.h>
 #include <Cesium3DTilesSelection/ViewState.h>
 #include <Cesium3DTilesSelection/registerAllTileContentTypes.h>
+#include <pxr/usd/usdGeom/xform.h>
 
 namespace cesium::omniverse {
 
@@ -81,6 +82,8 @@ int Context::addTilesetUrl(long stageId, const std::string& url) {
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_{}", tilesetId);
     const auto tilesetUsdPath = UsdUtil::getChildOfRootPathUnique(stageId, tilesetName);
+    const auto stage = UsdUtil::getUsdStage(stageId);
+    pxr::UsdGeomXform::Define(stage, tilesetUsdPath);
     _tilesets.emplace_back(std::make_unique<OmniTileset>(stageId, tilesetId, tilesetUsdPath, url));
     return tilesetId;
 }
@@ -89,6 +92,8 @@ int Context::addTilesetIon(long stageId, int64_t ionId, const std::string& ionTo
     const auto tilesetId = getTilesetId();
     const auto tilesetName = fmt::format("tileset_ion_{}", ionId);
     const auto tilesetUsdPath = UsdUtil::getChildOfRootPathUnique(stageId, tilesetName);
+    const auto stage = UsdUtil::getUsdStage(stageId);
+    pxr::UsdGeomXform::Define(stage, tilesetUsdPath);
     _tilesets.emplace_back(std::make_unique<OmniTileset>(stageId, tilesetId, tilesetUsdPath, ionId, ionToken));
     return tilesetId;
 }

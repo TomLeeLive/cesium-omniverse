@@ -27,9 +27,7 @@ struct InitializeTilesetResult {
 };
 
 namespace {
-InitializeTilesetResult initializeTileset(long stageId, const pxr::SdfPath& usdPath, const OmniTileset& tileset) {
-    const auto stage = UsdUtil::getUsdStage(stageId);
-    pxr::UsdGeomXform::Define(stage, usdPath);
+InitializeTilesetResult initializeTileset(long stageId, const OmniTileset& tileset) {
     const auto renderResourcesPreparer = std::make_shared<RenderResourcesPreparer>(stageId, tileset);
     auto& context = Context::instance();
     auto asyncSystem = CesiumAsync::AsyncSystem(context.getTaskProcessor());
@@ -64,7 +62,7 @@ InitializeTilesetResult initializeTileset(long stageId, const pxr::SdfPath& usdP
 } // namespace
 
 OmniTileset::OmniTileset(long stageId, int tilesetId, const pxr::SdfPath& usdPath, const std::string& url) {
-    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath, *this);
+    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, *this);
     _renderResourcesPreparer = renderResourcesPreparer;
     _tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(externals, url, options);
     _usdPath = usdPath;
@@ -77,7 +75,7 @@ OmniTileset::OmniTileset(
     const pxr::SdfPath& usdPath,
     int64_t ionId,
     const std::string& ionToken) {
-    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, usdPath, *this);
+    const auto& [externals, renderResourcesPreparer, options] = initializeTileset(stageId, *this);
     _renderResourcesPreparer = renderResourcesPreparer;
     _tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(externals, ionId, ionToken, options);
     _usdPath = usdPath;
