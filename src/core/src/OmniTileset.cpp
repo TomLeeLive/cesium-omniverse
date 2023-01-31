@@ -141,12 +141,8 @@ const int OmniTileset::getId() const {
     return _id;
 }
 
-const glm::dmat4& OmniTileset::getEcefToUsdTransform() const {
-    return _ecefToUsdTransform;
-}
-
-void OmniTileset::setEcefToUsdTransform(const glm::dmat4& ecefToUsdTransform) {
-    _ecefToUsdTransform = ecefToUsdTransform;
+OmniTilesetFrameState& OmniTileset::getFrameState() {
+    return _frameState;
 }
 
 } // namespace cesium::omniverse

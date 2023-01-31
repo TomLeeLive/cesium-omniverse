@@ -25,6 +25,7 @@ pxr::GfMatrix4d glmToUsdMatrix(const glm::dmat4& matrix);
 usdrt::GfMatrix4d glmToUsdrtMatrix(const glm::dmat4& matrix);
 Decomposed glmToUsdrtMatrixDecomposed(const glm::dmat4& matrix);
 glm::dmat4 computeUsdWorldTransform(long stageId, const pxr::SdfPath& path);
+bool isPrimVisible(long stageId, const pxr::SdfPath& path);
 pxr::TfToken getUsdUpAxis(long stageId);
 double getUsdMetersPerUnit(long stageId);
 pxr::SdfPath getChildOfRootPath(long stageId, const std::string& name);

@@ -5,27 +5,26 @@
 #include "cesium/omniverse/GltfToUSD.h"
 #include "cesium/omniverse/OmniTileset.h"
 #include "cesium/omniverse/RenderResourcesPreparer.h"
+#include "cesium/omniverse/UsdUtil.h"
 
 #include <CesiumAsync/AsyncSystem.h>
 
 namespace cesium::omniverse {
 
 namespace {
-void createUsdrtPrims(
+void createFabricPrims(
     int stageId,
     const OmniTileset& tileset,
     uint64_t tileId,
     const glm::dmat4& transform,
     const CesiumGltf::Model& model) {
-    GltfToUsd::createUsdrtPrims(
-        stageId,
-        tileset.getId(),
-        tileId,
-        CoordinateSystemUtil::computeEcefToUsdTransformForPrim(
-            stageId, Context::instance().getGeoreferenceOrigin(), tileset.getUsdPath()),
-        transform,
-        tileset.getUsdPath().GetName(), // TODO: might need to be path
-        model);
+
+    const auto path = tileset.getUsdPath();
+    const auto ecefToUsdTransform = CoordinateSystemUtil::computeEcefToUsdTransformForPrim(
+        stageId, Context::instance().getGeoreferenceOrigin(), path);
+    const auto visible = UsdUtil::isPrimVisible(stageId, path);
+
+    GltfToUsd::createFabricPrims(stageId, tileset.getId(), tileId, visible, ecefToUsdTransform, transform, model);
 }
 } // namespace
 
@@ -49,7 +48,7 @@ RenderResourcesPreparer::prepareInLoadThread(
 
     return asyncSystem.runInMainThread([this, asyncSystem, transform, tileLoadResult = std::move(tileLoadResult)]() {
         const auto pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
-        createUsdrtPrims(_stageId, _tileset, _tileCount++, transform, *pModel);
+        createFabricPrims(_stageId, _tileset, _tileCount++, transform, *pModel);
         return asyncSystem.createResolvedFuture(
             Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
     });

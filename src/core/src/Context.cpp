@@ -130,12 +130,33 @@ void Context::updateFrame(
     _viewStates.emplace_back(viewState);
 
     for (const auto& tileset : _tilesets) {
-        // TODO: instead we should be watching for changes
-        const auto transform =
-            CoordinateSystemUtil::computeEcefToUsdTransformForPrim(stageId, _georeferenceOrigin, tileset->getUsdPath());
-        if (transform != tileset->getEcefToUsdTransform()) {
-            tileset->setEcefToUsdTransform(transform);
-            UsdUtil::updatePrimTransforms(stageId, tileset->getId(), transform);
+        const auto path = tileset->getUsdPath();
+        auto& frameState = tileset->getFrameState();
+
+        // computeEcefToUsdTransformForPrim and isPrimVisible are slightly expensive operations to do every frame
+        // but they are simple and exhaustive.
+        //
+        // The faster approach would be to load the tileset USD prim into Fabric (easier said than done) and suscribe to
+        // changed events for _worldPosition, _worldOrientation, _worldScale, and visibility. Alternatively, we could
+        // register a listener with Tf::Notice but this has the downside of only notifying us about changes to the current
+        // prim and not its ancestor prims. Also Tf::Notice may notify us in a thread other than the main thread and we
+        // would have to be careful to synchronize updates to Fabric in the main thread.
+
+        // Check for transform changes and update Fabric prims accordingly
+        const auto ecefToUsdTransform =
+            CoordinateSystemUtil::computeEcefToUsdTransformForPrim(stageId, _georeferenceOrigin, path);
+
+        if (ecefToUsdTransform != frameState.ecefToUsdTransform) {
+            frameState.ecefToUsdTransform = ecefToUsdTransform;
+            UsdUtil::updatePrimTransforms(stageId, tileset->getId(), ecefToUsdTransform);
+        }
+
+        // Check for visibility changes and update Fabric prims accordingly
+        const auto visible = UsdUtil::isPrimVisible(stageId, path);
+
+        if (visible != frameState.visible) {
+            frameState.visible = visible;
+            UsdUtil::updatePrimVisibility(stageId, tileset->getId(), visible);
         }
 
         tileset->updateFrame(_viewStates);

@@ -341,6 +341,7 @@ usdrt::VtArray<int> getFaceVertexCounts(const usdrt::VtArray<int>& indices) {
 void convertPrimitiveToUsdrt(
     const usdrt::UsdStageRefPtr& stage,
     int tilesetId,
+    bool visible,
     const std::string& primName,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& gltfToEcefTransform,
@@ -410,7 +411,7 @@ void convertPrimitiveToUsdrt(
     prim.CreateAttribute(faceVertexIndicesToken, usdrt::SdfValueTypeNames->IntArray, false).Set(indices);
     prim.CreateAttribute(pointsToken, usdrt::SdfValueTypeNames->Point3fArray, false).Set(positions);
     prim.CreateAttribute(worldExtentToken, usdrt::SdfValueTypeNames->Range3d, false).Set(worldExtent.value());
-    prim.CreateAttribute(visibilityToken, usdrt::SdfValueTypeNames->Bool, false).Set(true);
+    prim.CreateAttribute(visibilityToken, usdrt::SdfValueTypeNames->Bool, false).Set(visible);
     prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
     prim.CreateAttribute(tilesetIdToken, usdrt::SdfValueTypeNames->Int, true).Set(tilesetId);
 
@@ -427,6 +428,7 @@ void convertPrimitiveToUsdrt(
 void convertPrimitiveToFabric(
     carb::flatcache::StageInProgress& stageInProgress,
     int tilesetId,
+    bool visible,
     const std::string& primName,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& gltfToEcefTransform,
@@ -606,7 +608,7 @@ void convertPrimitiveToFabric(
     worldExtentFabric->SetMin(usdrt::GfVec3d(-1.0, -1.0, -1.0));
     worldExtentFabric->SetMax(usdrt::GfVec3d(1.0, 1.0, 1.0));
 
-    *visibilityFabric = true;
+    *visibilityFabric = visible;
     primvarsFabric[0] = carb::flatcache::TokenC(displayColorToken);
     primvarInterpolationsFabric[0] = carb::flatcache::TokenC(constantToken);
     displayColorFabric[0] = displayColor;
@@ -618,13 +620,13 @@ void convertPrimitiveToFabric(
 }
 } // namespace
 
-void createUsdrtPrims(
+void createFabricPrims(
     long stageId,
     int tilesetId,
     uint64_t tileId,
+    bool visible,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& tileTransform,
-    const std::string& tilesetName,
     const CesiumGltf::Model& model) {
     const auto stage = UsdUtil::getUsdrtStage(stageId);
     auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
@@ -636,25 +638,19 @@ void createUsdrtPrims(
 
     model.forEachPrimitiveInScene(
         -1,
-        [&stage,
-         &stageInProgress,
-         &tilesetId,
-         &tilesetName,
-         &tileId,
-         &primitiveId,
-         &ecefToUsdTransform,
-         &gltfToEcefTransform](
+        [&stage, &stageInProgress, tilesetId, tileId, visible, &primitiveId, &ecefToUsdTransform, &gltfToEcefTransform](
             const CesiumGltf::Model& gltf,
             [[maybe_unused]] const CesiumGltf::Node& node,
             [[maybe_unused]] const CesiumGltf::Mesh& mesh,
             const CesiumGltf::MeshPrimitive& primitive,
             const glm::dmat4& transform) {
-            const auto primName = fmt::format("{}_tile_{}_primitive_{}", tilesetName, tileId, primitiveId++);
+            const auto primName = fmt::format("tileset_{}_tile_{}_primitive_{}", tilesetId, tileId, primitiveId++);
             // convertPrimitiveToUsdrt(
             //     stage, tilesetId, primName, ecefToUsdTransform, gltfToEcefTransform, transform, gltf, primitive);
             convertPrimitiveToFabric(
                 stageInProgress,
                 tilesetId,
+                visible,
                 primName,
                 ecefToUsdTransform,
                 gltfToEcefTransform,

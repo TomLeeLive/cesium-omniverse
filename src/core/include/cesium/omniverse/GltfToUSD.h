@@ -9,12 +9,12 @@
 #include <usdrt/scenegraph/usd/sdf/path.h>
 
 namespace cesium::omniverse::GltfToUsd {
-void createUsdrtPrims(
+void createFabricPrims(
     long stageId,
     int tilesetId,
     uint64_t tileId,
+    bool visible,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& tileTransform,
-    const std::string& tilesetName,
     const CesiumGltf::Model& model);
 }
