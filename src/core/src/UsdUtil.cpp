@@ -254,7 +254,7 @@ template <typename T> std::string toString(const T& value) {
 }
 
 template <typename T>
-std::string printAttributeValuePtr(const T* const values, const uint64_t elementCount, const uint64_t componentCount) {
+std::string printAttributeValuePtr(const T* values, uint64_t elementCount, uint64_t componentCount) {
     std::stringstream stream;
 
     if (elementCount > 1) {
@@ -289,18 +289,20 @@ std::string printAttributeValuePtr(const T* const values, const uint64_t element
     return stream.str();
 }
 
-template <typename T> std::string printAttributeValue(const usdrt::VtArray<T>& values, const uint64_t componentCount) {
-    return printAttributeValuePtr(values.data(), values.size(), componentCount);
-}
-
-template <typename T> std::string printAttributeValue(const gsl::span<T>& values) {
+template <typename BaseType, uint64_t ComponentCount>
+std::string printAttributeValueUsdrt(const usdrt::UsdAttribute& attribute) {
+    using ElementType = std::array<BaseType, ComponentCount>;
+    usdrt::VtArray<ElementType> values;
+    attribute.Get<ElementType>(&values);
     const uint64_t elementCount = values.size();
-    const uint64_t componentCount = std::tuple_size<T>::value;
-    return printAttributeValuePtr<T::value_type>(values.front().data(), elementCount, componentCount);
+    if (elementCount > 0) {
+        return printAttributeValuePtr<BaseType>(values.data()->data(), elementCount, ComponentCount);
+    }
+    return "";
 }
 
 template <bool IsArray, typename BaseType, uint64_t ComponentCount>
-std::string printAttributeValue(
+std::string printAttributeValueFabric(
     carb::flatcache::StageInProgress& stageInProgress,
     const carb::flatcache::Path& primPath,
     const carb::flatcache::Token& attributeName) {
@@ -308,13 +310,21 @@ std::string printAttributeValue(
 
     if constexpr (IsArray) {
         const auto values = stageInProgress.getArrayAttributeRd<ElementType>(primPath, attributeName);
-        return printAttributeValue(values);
+        const uint64_t elementCount = values.size();
+        return printAttributeValuePtr<BaseType>(values.front().data(), elementCount, ComponentCount);
     } else {
         const auto value = stageInProgress.getAttributeRd<ElementType>(primPath, attributeName);
         assert(value != nullptr);
-        const auto values = gsl::span<const ElementType>(value, 1);
-        return printAttributeValue(values);
+        return printAttributeValuePtr<BaseType>(value->data(), 1, ComponentCount);
     }
+}
+
+std::string getTypeName(const std::string& typeName) {
+    if (typeName == "") {
+        return "[None]";
+    }
+
+    return typeName;
 }
 
 std::string printUsdrtPrim(const usdrt::UsdPrim& prim, const bool printChildren) {
@@ -324,7 +334,6 @@ std::string printUsdrtPrim(const usdrt::UsdPrim& prim, const bool printChildren)
     const auto& primPath = prim.GetPrimPath().GetString();
     const auto& typeName = prim.GetTypeName().GetString();
     const auto& attributes = prim.GetAttributes();
-    const auto& children = prim.GetChildren();
 
     const uint64_t tabSize = 2;
     const uint64_t depth = std::count(primPath.begin(), primPath.end(), '/');
@@ -338,7 +347,7 @@ std::string printUsdrtPrim(const usdrt::UsdPrim& prim, const bool printChildren)
     if (printPrim) {
         stream << fmt::format("{}Prim: {}\n", primSpaces, primPath);
         stream << fmt::format("{}Name: {}\n", primInfoSpaces, name);
-        stream << fmt::format("{}Type: {}\n", primInfoSpaces, typeName);
+        stream << fmt::format("{}Type: {}\n", primInfoSpaces, getTypeName(typeName));
 
         if (!attributes.empty()) {
             stream << fmt::format("{}Attributes:\n", primInfoSpaces);
@@ -363,72 +372,190 @@ std::string printUsdrtPrim(const usdrt::UsdPrim& prim, const bool printChildren)
                 const auto componentCount = attributeType.componentCount;
 
                 std::string attributeValue;
+                bool typeNotSupported = false;
 
+                // These switch statements should cover all the attribute types we expect to see used by USDRT
+                // prims. See SdfValueTypeNames for the full list.
                 switch (baseType) {
+                    case carb::flatcache::BaseDataType::eToken: {
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<TokenWrapper, 1>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
+                        break;
+                    }
                     case carb::flatcache::BaseDataType::eBool: {
-                        usdrt::VtArray<bool> values;
-                        attribute.Get<bool>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<BoolWrapper, 1>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     case carb::flatcache::BaseDataType::eUChar: {
-                        usdrt::VtArray<uint8_t> values;
-                        attribute.Get<uint8_t>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<uint8_t, 1>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     case carb::flatcache::BaseDataType::eInt: {
-                        usdrt::VtArray<int32_t> values;
-                        attribute.Get<int32_t>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<int32_t, 1>(attribute);
+                                break;
+                            }
+                            case 2: {
+                                attributeValue = printAttributeValueUsdrt<int32_t, 2>(attribute);
+                                break;
+                            }
+                            case 3: {
+                                attributeValue = printAttributeValueUsdrt<int32_t, 3>(attribute);
+                                break;
+                            }
+                            case 4: {
+                                attributeValue = printAttributeValueUsdrt<int32_t, 4>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     case carb::flatcache::BaseDataType::eUInt: {
-                        usdrt::VtArray<uint32_t> values;
-                        attribute.Get<uint32_t>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<uint32_t, 1>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     case carb::flatcache::BaseDataType::eInt64: {
-                        usdrt::VtArray<int64_t> values;
-                        attribute.Get<int64_t>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<int64_t, 1>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     case carb::flatcache::BaseDataType::eUInt64: {
-                        usdrt::VtArray<uint64_t> values;
-                        attribute.Get<uint64_t>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<uint64_t, 1>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     case carb::flatcache::BaseDataType::eFloat: {
-                        usdrt::VtArray<float> values;
-                        attribute.Get<float>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<float, 1>(attribute);
+                                break;
+                            }
+                            case 2: {
+                                attributeValue = printAttributeValueUsdrt<float, 2>(attribute);
+                                break;
+                            }
+                            case 3: {
+                                attributeValue = printAttributeValueUsdrt<float, 3>(attribute);
+                                break;
+                            }
+                            case 4: {
+                                attributeValue = printAttributeValueUsdrt<float, 4>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     case carb::flatcache::BaseDataType::eDouble: {
-                        usdrt::VtArray<double> values;
-                        attribute.Get<double>(&values);
-                        attributeValue = printAttributeValue(values, componentCount);
+                        switch (componentCount) {
+                            case 1: {
+                                attributeValue = printAttributeValueUsdrt<double, 1>(attribute);
+                                break;
+                            }
+                            case 2: {
+                                attributeValue = printAttributeValueUsdrt<double, 2>(attribute);
+                                break;
+                            }
+                            case 3: {
+                                attributeValue = printAttributeValueUsdrt<double, 3>(attribute);
+                                break;
+                            }
+                            case 4: {
+                                attributeValue = printAttributeValueUsdrt<double, 4>(attribute);
+                                break;
+                            }
+                            case 6: {
+                                attributeValue = printAttributeValueUsdrt<double, 6>(attribute);
+                                break;
+                            }
+                            case 9: {
+                                attributeValue = printAttributeValueUsdrt<double, 9>(attribute);
+                                break;
+                            }
+                            case 16: {
+                                attributeValue = printAttributeValueUsdrt<double, 16>(attribute);
+                                break;
+                            }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
+                        }
                         break;
                     }
                     default: {
-                        attributeValue = "[Type not supported]";
+                        typeNotSupported = true;
                         break;
                     }
                 }
 
-                if (attributeValue == "") {
+                if (typeNotSupported) {
+                    attributeValue = "[Type not supported]";
+                } else if (attributeValue == "") {
                     attributeValue = "[Value not in Fabric]";
                 }
 
                 stream << fmt::format("{}Value: {}\n", attributeInfoSpaces, attributeValue);
             }
-        }
-
-        if (printChildren && !children.empty()) {
-            stream << fmt::format("{}Children: {}\n", primInfoSpaces, typeName);
         }
     }
 
@@ -511,6 +638,7 @@ std::string printFabricStage(long stageId) {
                     const auto roleString = toString(role);
 
                     std::string attributeValue;
+                    bool typeNotSupported = false;
 
                     // These switch statements should cover all the attribute types we expect to see used by USDRT
                     // prims. See SdfValueTypeNames for the full list. Fabric allows for many more attribute types
@@ -521,7 +649,11 @@ std::string printFabricStage(long stageId) {
                                 switch (componentCount) {
                                     case 1: {
                                         attributeValue =
-                                            printAttributeValue<false, TokenWrapper, 1>(sip, primPath, name);
+                                            printAttributeValueFabric<false, TokenWrapper, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -531,7 +663,11 @@ std::string printFabricStage(long stageId) {
                                 switch (componentCount) {
                                     case 1: {
                                         attributeValue =
-                                            printAttributeValue<false, BoolWrapper, 1>(sip, primPath, name);
+                                            printAttributeValueFabric<false, BoolWrapper, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -540,7 +676,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eUChar: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, uint8_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, uint8_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -549,19 +690,27 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eInt: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, int32_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, int32_t, 1>(sip, primPath, name);
                                         break;
                                     }
                                     case 2: {
-                                        attributeValue = printAttributeValue<false, int32_t, 2>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, int32_t, 2>(sip, primPath, name);
                                         break;
                                     }
                                     case 3: {
-                                        attributeValue = printAttributeValue<false, int32_t, 3>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, int32_t, 3>(sip, primPath, name);
                                         break;
                                     }
                                     case 4: {
-                                        attributeValue = printAttributeValue<false, int32_t, 4>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, int32_t, 4>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -570,7 +719,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eUInt: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, uint32_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, uint32_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -579,7 +733,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eInt64: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, int64_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, int64_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -588,7 +747,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eUInt64: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, uint64_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, uint64_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -597,19 +761,27 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eFloat: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, float, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, float, 1>(sip, primPath, name);
                                         break;
                                     }
                                     case 2: {
-                                        attributeValue = printAttributeValue<false, float, 2>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, float, 2>(sip, primPath, name);
                                         break;
                                     }
                                     case 3: {
-                                        attributeValue = printAttributeValue<false, float, 3>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, float, 3>(sip, primPath, name);
                                         break;
                                     }
                                     case 4: {
-                                        attributeValue = printAttributeValue<false, float, 4>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, float, 4>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -618,31 +790,42 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eDouble: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<false, double, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, double, 1>(sip, primPath, name);
                                         break;
                                     }
                                     case 2: {
-                                        attributeValue = printAttributeValue<false, double, 2>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, double, 2>(sip, primPath, name);
                                         break;
                                     }
                                     case 3: {
-                                        attributeValue = printAttributeValue<false, double, 3>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, double, 3>(sip, primPath, name);
                                         break;
                                     }
                                     case 4: {
-                                        attributeValue = printAttributeValue<false, double, 4>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, double, 4>(sip, primPath, name);
                                         break;
                                     }
                                     case 6: {
-                                        attributeValue = printAttributeValue<false, double, 6>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, double, 6>(sip, primPath, name);
                                         break;
                                     }
                                     case 9: {
-                                        attributeValue = printAttributeValue<false, double, 9>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, double, 9>(sip, primPath, name);
                                         break;
                                     }
                                     case 16: {
-                                        attributeValue = printAttributeValue<false, double, 16>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<false, double, 16>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -655,7 +838,11 @@ std::string printFabricStage(long stageId) {
                                 switch (componentCount) {
                                     case 1: {
                                         attributeValue =
-                                            printAttributeValue<true, TokenWrapper, 1>(sip, primPath, name);
+                                            printAttributeValueFabric<true, TokenWrapper, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -664,7 +851,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eBool: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, BoolWrapper, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, BoolWrapper, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -673,7 +865,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eUChar: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, uint8_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, uint8_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -682,19 +879,27 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eInt: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, int32_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, int32_t, 1>(sip, primPath, name);
                                         break;
                                     }
                                     case 2: {
-                                        attributeValue = printAttributeValue<true, int32_t, 2>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, int32_t, 2>(sip, primPath, name);
                                         break;
                                     }
                                     case 3: {
-                                        attributeValue = printAttributeValue<true, int32_t, 3>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, int32_t, 3>(sip, primPath, name);
                                         break;
                                     }
                                     case 4: {
-                                        attributeValue = printAttributeValue<true, int32_t, 4>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, int32_t, 4>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -703,7 +908,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eUInt: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, uint32_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, uint32_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -712,7 +922,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eInt64: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, int64_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, int64_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -721,7 +936,12 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eUInt64: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, uint64_t, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, uint64_t, 1>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -730,19 +950,23 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eFloat: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, float, 1>(sip, primPath, name);
+                                        attributeValue = printAttributeValueFabric<true, float, 1>(sip, primPath, name);
                                         break;
                                     }
                                     case 2: {
-                                        attributeValue = printAttributeValue<true, float, 2>(sip, primPath, name);
+                                        attributeValue = printAttributeValueFabric<true, float, 2>(sip, primPath, name);
                                         break;
                                     }
                                     case 3: {
-                                        attributeValue = printAttributeValue<true, float, 3>(sip, primPath, name);
+                                        attributeValue = printAttributeValueFabric<true, float, 3>(sip, primPath, name);
                                         break;
                                     }
                                     case 4: {
-                                        attributeValue = printAttributeValue<true, float, 4>(sip, primPath, name);
+                                        attributeValue = printAttributeValueFabric<true, float, 4>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
@@ -751,41 +975,58 @@ std::string printFabricStage(long stageId) {
                             case carb::flatcache::BaseDataType::eDouble: {
                                 switch (componentCount) {
                                     case 1: {
-                                        attributeValue = printAttributeValue<true, double, 1>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, double, 1>(sip, primPath, name);
                                         break;
                                     }
                                     case 2: {
-                                        attributeValue = printAttributeValue<true, double, 2>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, double, 2>(sip, primPath, name);
                                         break;
                                     }
                                     case 3: {
-                                        attributeValue = printAttributeValue<true, double, 3>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, double, 3>(sip, primPath, name);
                                         break;
                                     }
                                     case 4: {
-                                        attributeValue = printAttributeValue<true, double, 4>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, double, 4>(sip, primPath, name);
                                         break;
                                     }
                                     case 6: {
-                                        attributeValue = printAttributeValue<true, double, 6>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, double, 6>(sip, primPath, name);
                                         break;
                                     }
                                     case 9: {
-                                        attributeValue = printAttributeValue<true, double, 9>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, double, 9>(sip, primPath, name);
                                         break;
                                     }
                                     case 16: {
-                                        attributeValue = printAttributeValue<true, double, 16>(sip, primPath, name);
+                                        attributeValue =
+                                            printAttributeValueFabric<true, double, 16>(sip, primPath, name);
+                                        break;
+                                    }
+                                    default: {
+                                        typeNotSupported = true;
                                         break;
                                     }
                                 }
                                 break;
                             }
+                            default: {
+                                typeNotSupported = true;
+                                break;
+                            }
                         }
                     }
 
-                    if (attributeValue == "") {
+                    if (typeNotSupported) {
                         attributeValue = "[Type not supported]";
+                    } else if (attributeValue == "") {
+                        attributeValue = "[Value not in Fabric]";
                     }
 
                     stream << fmt::format("{}Attribute: {}\n", attributeSpaces, attributeNameString);
