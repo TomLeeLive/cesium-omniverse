@@ -1,5 +1,7 @@
 #include "cesium/omniverse/GltfToUSD.h"
 
+#include "cesium/omniverse/Context.h"
+#include "cesium/omniverse/InMemoryAssetResolver.h"
 #include "cesium/omniverse/UsdUtil.h"
 
 #ifdef CESIUM_OMNI_MSVC
@@ -14,11 +16,17 @@
 #include <CesiumGltfReader/GltfReader.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <pxr/usd/sdf/assetPath.h>
 #include <spdlog/fmt/fmt.h>
 #include <usdrt/gf/range.h>
 #include <usdrt/gf/vec.h>
 #include <usdrt/scenegraph/usd/rt/xformable.h>
 #include <usdrt/scenegraph/usd/sdf/types.h>
+
+#include <regex>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 #include <numeric>
 #include <optional>
@@ -338,8 +346,42 @@ usdrt::VtArray<int> getFaceVertexCounts(const usdrt::VtArray<int>& indices) {
     return faceVertexCounts;
 }
 
+std::vector<std::byte> writeImageToBmp(const CesiumGltf::ImageCesium& image) {
+    std::vector<std::byte> writeData;
+    stbi_write_bmp_to_func(
+        [](void* context, void* data, int size) {
+            auto& write = *reinterpret_cast<std::vector<std::byte>*>(context);
+            const auto bdata = reinterpret_cast<std::byte*>(data);
+            write.insert(write.end(), bdata, bdata + size);
+        },
+        &writeData,
+        image.width,
+        image.height,
+        image.channels,
+        image.pixelData.data());
+
+    return writeData;
+}
+
+pxr::SdfAssetPath convertTextureToUsd(
+    const CesiumGltf::Model& model,
+    const CesiumGltf::Texture& texture,
+    const std::string& textureName) {
+    const auto imageId = static_cast<uint64_t>(texture.source);
+    const auto& image = model.images[imageId];
+
+    auto inMemoryAsset = std::make_shared<pxr::InMemoryAsset>(writeImageToBmp(image.cesium));
+    auto& ctx = pxr::InMemoryAssetContext::instance();
+    ctx.assets.insert({textureName, std::move(inMemoryAsset)});
+
+    const auto memCesiumPath = Context::instance().getMemCesiumPath().generic_string();
+    const auto assetPath = fmt::format("{}[{}]", memCesiumPath, textureName);
+
+    return pxr::SdfAssetPath(assetPath);
+}
+
 void convertPrimitiveToUsdrt(
-    const usdrt::UsdStageRefPtr& stage,
+    usdrt::UsdStageRefPtr stage,
     int tilesetId,
     bool visible,
     const std::string& primName,
@@ -618,6 +660,28 @@ void convertPrimitiveToFabric(
     *worldScaleFabric = worldScale;
     *localMatrixFabric = UsdUtil::glmToUsdrtMatrix(localToEcefTransform);
 }
+
+std::string sanitizeAssetPath(const std::string& assetPath) {
+    const std::regex regex("[\\W]+");
+    const std::string replace = "_";
+
+    return std::regex_replace(assetPath, regex, replace);
+}
+
+std::string getTexturePrefix(const CesiumGltf::Model& model, const std::string& tileName) {
+    // Texture asset paths need to be uniquely identifiable in order for Omniverse texture caching to function correctly.
+    // If the tile url doesn't exist (which is unlikely), fall back to the tile name. Just be aware that the tile name
+    // is not guaranteed to be the same across app invocations and caching may break.
+    std::string texturePrefix = tileName;
+    auto urlIt = model.extras.find("Cesium3DTiles_TileUrl");
+    if (urlIt != model.extras.end()) {
+        texturePrefix = urlIt->second.getStringOrDefault(tileName);
+        // Replace path separators with underscores. As of Kit 104.1, the texture cache does not include the full
+        // package-relative inner path in the cache key.
+    }
+    return sanitizeAssetPath(texturePrefix);
+}
+
 } // namespace
 
 void createFabricPrims(
@@ -634,17 +698,34 @@ void createFabricPrims(
     auto gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyRtcCenter(model, tileTransform);
     gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyGltfUpAxisTransform(model, gltfToEcefTransform);
 
+    const auto tileName = fmt::format("tileset_{}_tile_{}", tilesetId, tileId);
+    const auto texturePrefix = getTexturePrefix(model, tileName);
+
+    std::vector<pxr::SdfAssetPath> textureUsdPaths;
+    textureUsdPaths.reserve(model.textures.size());
+    for (auto i = 0; i < model.textures.size(); ++i) {
+        const auto textureName = fmt::format("{}_texture_{}", texturePrefix, i);
+        textureUsdPaths.emplace_back(convertTextureToUsd(model, model.textures[i], textureName));
+    }
+
     uint64_t primitiveId = 0;
 
     model.forEachPrimitiveInScene(
         -1,
-        [&stage, &stageInProgress, tilesetId, tileId, visible, &primitiveId, &ecefToUsdTransform, &gltfToEcefTransform](
+        [&stage,
+         &stageInProgress,
+         &tileName,
+         tilesetId,
+         visible,
+         &primitiveId,
+         &ecefToUsdTransform,
+         &gltfToEcefTransform](
             const CesiumGltf::Model& gltf,
             [[maybe_unused]] const CesiumGltf::Node& node,
             [[maybe_unused]] const CesiumGltf::Mesh& mesh,
             const CesiumGltf::MeshPrimitive& primitive,
             const glm::dmat4& transform) {
-            const auto primName = fmt::format("tileset_{}_tile_{}_primitive_{}", tilesetId, tileId, primitiveId++);
+            const auto primName = fmt::format("{}_primitive_{}", tileName, primitiveId++);
             // convertPrimitiveToUsdrt(
             //     stage, tilesetId, primName, ecefToUsdTransform, gltfToEcefTransform, transform, gltf, primitive);
             convertPrimitiveToFabric(

@@ -48,6 +48,7 @@ class Context {
     updateFrame(long stageId, const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height);
     const CesiumGeospatial::Cartographic& getGeoreferenceOrigin() const;
     void setGeoreferenceOrigin(const CesiumGeospatial::Cartographic& origin);
+    std::filesystem::path getMemCesiumPath() const;
 
   private:
     Context() = default;
@@ -61,7 +62,7 @@ class Context {
     std::vector<std::unique_ptr<OmniTileset>> _tilesets;
     std::vector<Cesium3DTilesSelection::ViewState> _viewStates;
     int _tilesetIdCount = 0;
-    std::filesystem::path _cesiumMemLocation;
+    std::filesystem::path _memCesiumPath;
     std::filesystem::path _certificatePath;
 
     CesiumGeospatial::Cartographic _georeferenceOrigin{0.0, 0.0, 0.0};

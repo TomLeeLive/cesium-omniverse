@@ -44,7 +44,7 @@ void Context::init(const std::filesystem::path& cesiumExtensionLocation) {
 
     _tilesetIdCount = 0;
 
-    _cesiumMemLocation = cesiumExtensionLocation / "bin";
+    _memCesiumPath = cesiumExtensionLocation / "bin" / "mem.cesium";
     _certificatePath = cesiumExtensionLocation / "certs";
 
     Cesium3DTilesSelection::registerAllTileContentTypes();
@@ -125,10 +125,9 @@ void Context::updateFrame(
     double width,
     double height) {
 
-    const auto viewState =
-        CoordinateSystemUtil::computeViewState(stageId, _georeferenceOrigin, viewMatrix, projMatrix, width, height);
     _viewStates.clear();
-    _viewStates.emplace_back(viewState);
+    _viewStates.emplace_back(
+        CoordinateSystemUtil::computeViewState(stageId, _georeferenceOrigin, viewMatrix, projMatrix, width, height));
 
     for (const auto& tileset : _tilesets) {
         const auto path = tileset->getUsdPath();
@@ -137,11 +136,11 @@ void Context::updateFrame(
         // computeEcefToUsdTransformForPrim and isPrimVisible are slightly expensive operations to do every frame
         // but they are simple and exhaustive.
         //
-        // The faster approach would be to load the tileset USD prim into Fabric and suscribe to changed events for
-        // _worldPosition, _worldOrientation, _worldScale, and visibility. Alternatively, we could register a listener
-        // with Tf::Notice but this has the downside of only notifying us about changes to the current prim and not its
-        // ancestor prims. Also Tf::Notice may notify us in a thread other than the main thread and we would have to be
-        // careful to synchronize updates to Fabric in the main thread.
+        // The faster approach would be to load the tileset USD prim into Fabric (via usdrt::UsdStage::GetPrimAtPath)
+        // and subscribe to changed events for _worldPosition, _worldOrientation, _worldScale, and visibility.
+        // Alternatively, we could register a listener with Tf::Notice but this has the downside of only notifying us
+        // about changes to the current prim and not its ancestor prims. Also Tf::Notice may notify us in a thread other
+        // than the main thread and we would have to be careful to synchronize updates to Fabric in the main thread.
 
         // Check for transform changes and update Fabric prims accordingly
         const auto ecefToUsdTransform =
@@ -172,6 +171,10 @@ const CesiumGeospatial::Cartographic& Context::getGeoreferenceOrigin() const {
 
 void Context::setGeoreferenceOrigin(const CesiumGeospatial::Cartographic& origin) {
     _georeferenceOrigin = origin;
+}
+
+std::filesystem::path Context::getMemCesiumPath() const {
+    return _memCesiumPath;
 }
 
 int Context::getTilesetId() {
