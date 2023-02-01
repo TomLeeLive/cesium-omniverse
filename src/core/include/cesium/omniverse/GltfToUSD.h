@@ -1,12 +1,10 @@
 #pragma once
 
-#ifdef CESIUM_OMNI_MSVC
-#pragma push_macro("OPAQUE")
-#undef OPAQUE
-#endif
+#include <glm/glm.hpp>
 
-#include <CesiumGltf/Model.h>
-#include <usdrt/scenegraph/usd/sdf/path.h>
+namespace CesiumGltf {
+struct Model;
+}
 
 namespace cesium::omniverse::GltfToUsd {
 void createFabricPrims(

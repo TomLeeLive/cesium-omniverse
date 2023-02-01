@@ -30,12 +30,16 @@ class OmniTileset {
     const pxr::SdfPath& getUsdPath() const;
     const int getId() const;
     OmniTilesetFrameState& getFrameState();
+    bool getSuspendUpdate() const;
+    void setSuspendUpdate(bool suspendUpdate);
+
 
   private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> _tileset;
     std::shared_ptr<RenderResourcesPreparer> _renderResourcesPreparer;
     pxr::SdfPath _usdPath;
     int _id;
+    bool _suspendUpdate = false;
     OmniTilesetFrameState _frameState;
 };
 } // namespace cesium::omniverse

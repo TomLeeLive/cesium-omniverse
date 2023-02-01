@@ -29,11 +29,11 @@ class "CesiumData" (
     )
 }
 
-class "TilesetAPI" (
+class "CesiumTileset" (
     doc = """Adds Cesium specific data to a prim for representing a tileset."""
-    inherits = </APISchemaBase>
+    inherits = </Typed>
     customData = {
-        string className = "TilesetAPI"
+        string className = "CesiumTileset"
     }
 ) {
     string assetId = "" (
@@ -41,5 +41,8 @@ class "TilesetAPI" (
     )
     string assetUrl = "" (
         doc = "A string representing an asset URL."
+    )
+    bool suspendUpdate = false (
+        doc = "Pauses level-of-detail and culling updates of this tileset."
     )
 }

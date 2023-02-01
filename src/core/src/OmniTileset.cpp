@@ -145,4 +145,11 @@ OmniTilesetFrameState& OmniTileset::getFrameState() {
     return _frameState;
 }
 
+bool OmniTileset::getSuspendUpdate() const {
+    return _suspendUpdate;
+}
+void OmniTileset::setSuspendUpdate(bool suspendUpdate) {
+    _suspendUpdate = suspendUpdate;
+}
+
 } // namespace cesium::omniverse

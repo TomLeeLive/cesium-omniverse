@@ -124,6 +124,7 @@ void Context::updateFrame(
     const glm::dmat4& projMatrix,
     double width,
     double height) {
+
     const auto viewState =
         CoordinateSystemUtil::computeViewState(stageId, _georeferenceOrigin, viewMatrix, projMatrix, width, height);
     _viewStates.clear();
@@ -136,11 +137,11 @@ void Context::updateFrame(
         // computeEcefToUsdTransformForPrim and isPrimVisible are slightly expensive operations to do every frame
         // but they are simple and exhaustive.
         //
-        // The faster approach would be to load the tileset USD prim into Fabric (easier said than done) and suscribe to
-        // changed events for _worldPosition, _worldOrientation, _worldScale, and visibility. Alternatively, we could
-        // register a listener with Tf::Notice but this has the downside of only notifying us about changes to the current
-        // prim and not its ancestor prims. Also Tf::Notice may notify us in a thread other than the main thread and we
-        // would have to be careful to synchronize updates to Fabric in the main thread.
+        // The faster approach would be to load the tileset USD prim into Fabric and suscribe to changed events for
+        // _worldPosition, _worldOrientation, _worldScale, and visibility. Alternatively, we could register a listener
+        // with Tf::Notice but this has the downside of only notifying us about changes to the current prim and not its
+        // ancestor prims. Also Tf::Notice may notify us in a thread other than the main thread and we would have to be
+        // careful to synchronize updates to Fabric in the main thread.
 
         // Check for transform changes and update Fabric prims accordingly
         const auto ecefToUsdTransform =
@@ -159,7 +160,9 @@ void Context::updateFrame(
             UsdUtil::updatePrimVisibility(stageId, tileset->getId(), visible);
         }
 
-        tileset->updateFrame(_viewStates);
+        if (!tileset->getSuspendUpdate()) {
+            tileset->updateFrame(_viewStates);
+        }
     }
 }
 
