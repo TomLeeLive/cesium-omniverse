@@ -18,6 +18,7 @@ struct Decomposed {
 
 pxr::UsdStageRefPtr getUsdStage(long stageId);
 usdrt::UsdStageRefPtr getUsdrtStage(long stageId);
+carb::flatcache::StageInProgress getFabricStageInProgressId(long stageId);
 carb::flatcache::StageInProgress getFabricStageInProgress(long stageId);
 glm::dmat4 usdToGlmMatrix(const pxr::GfMatrix4d& matrix);
 glm::dmat4 usdrtToGlmMatrix(const usdrt::GfMatrix4d& matrix);

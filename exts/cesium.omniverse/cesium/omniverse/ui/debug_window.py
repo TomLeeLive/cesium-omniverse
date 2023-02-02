@@ -256,6 +256,10 @@ class CesiumOmniverseDebugWindow(ui.Window):
             usdrt_stage = self._cesium_omniverse_interface.printFabricStage(stage_id)
             self._cesium_message_field.set_value(usdrt_stage)
 
+        def populate_usd_stage_into_fabric():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.populateUsdStageIntoFabric(stage_id)
+
         with ui.VStack():
             with ui.VStack():
                 ui.Button("Update Frame", clicked_fn=lambda: start_update_frame())
@@ -274,6 +278,7 @@ class CesiumOmniverseDebugWindow(ui.Window):
                 ui.Button("Hide Cube USDRT", clicked_fn=lambda: hide_cube_usdrt())
                 ui.Button("Print USDRT stage", clicked_fn=lambda: print_usdrt_stage())
                 ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
+                ui.Button("Populate USD Stage into Fabric", clicked_fn=lambda: populate_usd_stage_into_fabric())
             with ui.VStack():
                 self._cesium_message_field = ui.SimpleStringModel("")
                 ui.StringField(self._cesium_message_field, multiline=True, read_only=True)

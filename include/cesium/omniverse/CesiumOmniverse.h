@@ -154,6 +154,14 @@ class ICesiumOmniverseInterface {
      * @returns A string representation of the Fabric stage.
      */
     virtual std::string printFabricStage(long stageId) noexcept = 0;
+
+    /**
+     * @brief Populate USD stage into Fabric.
+     *
+     * @param stageId The USD stage id
+     */
+    virtual void populateUsdStageIntoFabric(long stageId) noexcept = 0;
+
 };
 
 } // namespace cesium::omniverse

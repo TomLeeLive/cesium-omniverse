@@ -21,6 +21,11 @@ usdrt::UsdStageRefPtr getUsdrtStage(long stageId) {
     return usdrt::UsdStage::Attach(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
 }
 
+carb::flatcache::StageInProgress getFabricStageInProgressId(long stageId) {
+    const auto stage = getUsdrtStage(stageId);
+    return stage->GetStageInProgressId();
+}
+
 carb::flatcache::StageInProgress getFabricStageInProgress(long stageId) {
     const auto stage = getUsdrtStage(stageId);
     const auto stageInProgressId = stage->GetStageInProgressId();

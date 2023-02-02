@@ -15,6 +15,7 @@
 #include <pxr/usd/usd/attribute.h>
 #include <pxr/usd/usd/prim.h>
 #include <pxr/usd/usd/stage.h>
+#include <usdrt/population/IUtils.h>
 #include <usdrt/scenegraph/base/gf/range3d.h>
 #include <usdrt/scenegraph/base/gf/vec3f.h>
 #include <usdrt/scenegraph/usd/rt/xformable.h>
@@ -135,6 +136,9 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         xform.CreateWorldPositionAttr(usdrt::GfVec3d(0.0, 0.0, 0.0));
         xform.CreateWorldOrientationAttr(usdrt::GfQuatf(1.0));
         xform.CreateWorldScaleAttr(usdrt::GfVec3f(1.0));
+
+        const usdrt::TfToken materialIdToken("materialId");
+        prim.CreateAttribute(materialIdToken, usdrt::SdfValueTypeNames->token.AddTarget(usdrt::SdfPath("/World/Looks/OmniPBR"));
     }
 
     void addCubeUsd(long stageId) noexcept override {
@@ -406,6 +410,11 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
     std::string printFabricStage(long stageId) noexcept override {
         return UsdUtil::printFabricStage(stageId);
+    }
+
+    void populateUsdStageIntoFabric(long stageId) noexcept override {
+        const auto stage = UsdUtil::getUsdrtStage(stageId);
+        stage->Traverse();
     }
 };
 } // namespace cesium::omniverse
