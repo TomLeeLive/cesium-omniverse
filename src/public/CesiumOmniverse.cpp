@@ -136,9 +136,6 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         xform.CreateWorldPositionAttr(usdrt::GfVec3d(0.0, 0.0, 0.0));
         xform.CreateWorldOrientationAttr(usdrt::GfQuatf(1.0));
         xform.CreateWorldScaleAttr(usdrt::GfVec3f(1.0));
-
-        const usdrt::TfToken materialIdToken("materialId");
-        prim.CreateAttribute(materialIdToken, usdrt::SdfValueTypeNames->token.AddTarget(usdrt::SdfPath("/World/Looks/OmniPBR"));
     }
 
     void addCubeUsd(long stageId) noexcept override {
@@ -191,6 +188,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const carb::flatcache::Token worldOrientationToken("_worldOrientation");
         const carb::flatcache::Token worldScaleToken("_worldScale");
         const carb::flatcache::Token localMatrixToken("_localMatrix");
+        const carb::flatcache::Token materialIdToken("materialId");
 
         const carb::flatcache::Type faceVertexCountsType(
             carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone);
@@ -231,10 +229,13 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const carb::flatcache::Type localMatrixType(
             carb::flatcache::BaseDataType::eDouble, 16, 0, carb::flatcache::AttributeRole::eMatrix);
 
+        const carb::flatcache::Type materialIdType(
+            carb::flatcache::BaseDataType::eToken, 1, 0, carb::flatcache::AttributeRole::eNone);
+
         stageInProgress.createPrim(primPath);
         stageInProgress.createAttributes(
             primPath,
-            std::array<carb::flatcache::AttrNameAndType, 13>{
+            std::array<carb::flatcache::AttrNameAndType, 14>{
                 carb::flatcache::AttrNameAndType{
                     faceVertexCountsType,
                     faceVertexCountsToken,
@@ -287,7 +288,10 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
                     localMatrixType,
                     localMatrixToken,
                 },
-            });
+                carb::flatcache::AttrNameAndType{
+                    materialIdType,
+                    materialIdToken,
+                }});
 
         stageInProgress.setArrayAttributeSize(primPath, faceVertexCountsToken, 6);
         stageInProgress.setArrayAttributeSize(primPath, faceVertexIndicesToken, 24);
@@ -309,6 +313,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const auto worldOrientation = stageInProgress.getAttributeWr<usdrt::GfQuatf>(primPath, worldOrientationToken);
         const auto worldScale = stageInProgress.getAttributeWr<usdrt::GfVec3f>(primPath, worldScaleToken);
         const auto localMatrix = stageInProgress.getAttributeWr<usdrt::GfMatrix4d>(primPath, localMatrixToken);
+        const auto materialId = stageInProgress.getAttributeWr<carb::flatcache::TokenC>(primPath, materialIdToken);
 
         faceVertexCounts[0] = 4;
         faceVertexCounts[1] = 4;
@@ -362,6 +367,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         *worldOrientation = usdrt::GfQuatf(1.0);
         *worldScale = usdrt::GfVec3f(1.0);
         *localMatrix = UsdUtil::glmToUsdrtMatrix(glm::dmat4(1.0));
+        *materialId = carb::flatcache::TokenC(carb::flatcache::Token("/World/Looks/OmniPBR"));
     }
 
     void showCubeUsdrt(long stageId) noexcept override {
