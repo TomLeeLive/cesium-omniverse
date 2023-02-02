@@ -676,9 +676,10 @@ std::string getTexturePrefix(const CesiumGltf::Model& model, const std::string& 
     auto urlIt = model.extras.find("Cesium3DTiles_TileUrl");
     if (urlIt != model.extras.end()) {
         texturePrefix = urlIt->second.getStringOrDefault(tileName);
-        // Replace path separators with underscores. As of Kit 104.1, the texture cache does not include the full
-        // package-relative inner path in the cache key.
     }
+
+    // Replace path separators and other special characters with underscores.
+    // As of Kit 104.1, the texture cache only includes the name after the last path separator in the cache key.
     return sanitizeAssetPath(texturePrefix);
 }
 
@@ -726,10 +727,8 @@ void createFabricPrims(
             const CesiumGltf::MeshPrimitive& primitive,
             const glm::dmat4& transform) {
             const auto primName = fmt::format("{}_primitive_{}", tileName, primitiveId++);
-            // convertPrimitiveToUsdrt(
-            //     stage, tilesetId, primName, ecefToUsdTransform, gltfToEcefTransform, transform, gltf, primitive);
-            convertPrimitiveToFabric(
-                stageInProgress,
+            convertPrimitiveToUsdrt(
+                stage,
                 tilesetId,
                 visible,
                 primName,
@@ -738,6 +737,16 @@ void createFabricPrims(
                 transform,
                 gltf,
                 primitive);
+            // convertPrimitiveToFabric(
+            //     stageInProgress,
+            //     tilesetId,
+            //     visible,
+            //     primName,
+            //     ecefToUsdTransform,
+            //     gltfToEcefTransform,
+            //     transform,
+            //     gltf,
+            //     primitive);
         });
 }
 } // namespace cesium::omniverse::GltfToUsd

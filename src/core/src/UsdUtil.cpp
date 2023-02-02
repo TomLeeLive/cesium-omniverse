@@ -844,6 +844,10 @@ std::string printFabricStage(long stageId) {
                             }
                             break;
                         }
+                        default: {
+                            typeNotSupported = true;
+                            break;
+                        }
                     }
                 } else if (arrayDepth == 1) {
                     switch (baseType) {
