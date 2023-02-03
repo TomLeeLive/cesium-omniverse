@@ -182,8 +182,10 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const carb::flatcache::Token primvarsToken("primvars");
         const carb::flatcache::Token primvarInterpolationsToken("primvarInterpolations");
         const carb::flatcache::Token displayColorToken("primvars:displayColor");
+        const carb::flatcache::Token stToken("primvars:st");
         const carb::flatcache::Token meshToken("Mesh");
         const carb::flatcache::Token constantToken("constant");
+        const carb::flatcache::Token vertexToken("vertex");
         const carb::flatcache::Token worldPositionToken("_worldPosition");
         const carb::flatcache::Token worldOrientationToken("_worldOrientation");
         const carb::flatcache::Token worldScaleToken("_worldScale");
@@ -214,6 +216,9 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const carb::flatcache::Type displayColorType(
             carb::flatcache::BaseDataType::eFloat, 3, 1, carb::flatcache::AttributeRole::eColor);
 
+        const carb::flatcache::Type stType(
+            carb::flatcache::BaseDataType::eFloat, 2, 1, carb::flatcache::AttributeRole::eTexCoord);
+
         const carb::flatcache::Type meshType(
             carb::flatcache::BaseDataType::eTag, 1, 0, carb::flatcache::AttributeRole::ePrimTypeName);
 
@@ -235,7 +240,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         stageInProgress.createPrim(primPath);
         stageInProgress.createAttributes(
             primPath,
-            std::array<carb::flatcache::AttrNameAndType, 14>{
+            std::array<carb::flatcache::AttrNameAndType, 15>{
                 carb::flatcache::AttrNameAndType{
                     faceVertexCountsType,
                     faceVertexCountsToken,
@@ -269,6 +274,10 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
                     displayColorToken,
                 },
                 carb::flatcache::AttrNameAndType{
+                    stType,
+                    stToken,
+                },
+                carb::flatcache::AttrNameAndType{
                     meshType,
                     meshToken,
                 },
@@ -293,12 +302,13 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
                     materialIdToken,
                 }});
 
-        stageInProgress.setArrayAttributeSize(primPath, faceVertexCountsToken, 6);
-        stageInProgress.setArrayAttributeSize(primPath, faceVertexIndicesToken, 24);
-        stageInProgress.setArrayAttributeSize(primPath, pointsToken, 8);
-        stageInProgress.setArrayAttributeSize(primPath, primvarsToken, 1);
-        stageInProgress.setArrayAttributeSize(primPath, primvarInterpolationsToken, 1);
+        stageInProgress.setArrayAttributeSize(primPath, faceVertexCountsToken, 12);
+        stageInProgress.setArrayAttributeSize(primPath, faceVertexIndicesToken, 36);
+        stageInProgress.setArrayAttributeSize(primPath, pointsToken, 24);
+        stageInProgress.setArrayAttributeSize(primPath, primvarsToken, 2);
+        stageInProgress.setArrayAttributeSize(primPath, primvarInterpolationsToken, 2);
         stageInProgress.setArrayAttributeSize(primPath, displayColorToken, 1);
+        stageInProgress.setArrayAttributeSize(primPath, stToken, 24);
 
         const auto faceVertexCounts = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexCountsToken);
         const auto faceVertexIndices = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexIndicesToken);
@@ -309,59 +319,146 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         const auto primvarInterpolations =
             stageInProgress.getArrayAttributeWr<carb::flatcache::TokenC>(primPath, primvarInterpolationsToken);
         const auto displayColor = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, displayColorToken);
+        const auto st = stageInProgress.getArrayAttributeWr<usdrt::GfVec2f>(primPath, stToken);
         const auto worldPosition = stageInProgress.getAttributeWr<usdrt::GfVec3d>(primPath, worldPositionToken);
         const auto worldOrientation = stageInProgress.getAttributeWr<usdrt::GfQuatf>(primPath, worldOrientationToken);
         const auto worldScale = stageInProgress.getAttributeWr<usdrt::GfVec3f>(primPath, worldScaleToken);
         const auto localMatrix = stageInProgress.getAttributeWr<usdrt::GfMatrix4d>(primPath, localMatrixToken);
         const auto materialId = stageInProgress.getAttributeWr<carb::flatcache::TokenC>(primPath, materialIdToken);
 
-        faceVertexCounts[0] = 4;
-        faceVertexCounts[1] = 4;
-        faceVertexCounts[2] = 4;
-        faceVertexCounts[3] = 4;
-        faceVertexCounts[4] = 4;
-        faceVertexCounts[5] = 4;
+        faceVertexCounts[0] = 3;
+        faceVertexCounts[1] = 3;
+        faceVertexCounts[2] = 3;
+        faceVertexCounts[3] = 3;
+        faceVertexCounts[4] = 3;
+        faceVertexCounts[5] = 3;
+        faceVertexCounts[6] = 3;
+        faceVertexCounts[7] = 3;
+        faceVertexCounts[8] = 3;
+        faceVertexCounts[9] = 3;
+        faceVertexCounts[10] = 3;
+        faceVertexCounts[11] = 3;
 
-        faceVertexIndices[0] = 0;
-        faceVertexIndices[1] = 1;
-        faceVertexIndices[2] = 3;
-        faceVertexIndices[3] = 2;
-        faceVertexIndices[4] = 2;
-        faceVertexIndices[5] = 3;
-        faceVertexIndices[6] = 7;
-        faceVertexIndices[7] = 6;
-        faceVertexIndices[8] = 6;
-        faceVertexIndices[9] = 7;
-        faceVertexIndices[10] = 5;
-        faceVertexIndices[11] = 4;
-        faceVertexIndices[12] = 4;
-        faceVertexIndices[13] = 5;
-        faceVertexIndices[14] = 1;
-        faceVertexIndices[15] = 0;
-        faceVertexIndices[16] = 2;
-        faceVertexIndices[17] = 6;
-        faceVertexIndices[18] = 4;
-        faceVertexIndices[19] = 0;
+        faceVertexIndices[0] = 14;
+        faceVertexIndices[1] = 7;
+        faceVertexIndices[2] = 1;
+        faceVertexIndices[3] = 6;
+        faceVertexIndices[4] = 23;
+        faceVertexIndices[5] = 10;
+        faceVertexIndices[6] = 18;
+        faceVertexIndices[7] = 15;
+        faceVertexIndices[8] = 21;
+        faceVertexIndices[9] = 3;
+        faceVertexIndices[10] = 22;
+        faceVertexIndices[11] = 16;
+        faceVertexIndices[12] = 2;
+        faceVertexIndices[13] = 11;
+        faceVertexIndices[14] = 5;
+        faceVertexIndices[15] = 13;
+        faceVertexIndices[16] = 4;
+        faceVertexIndices[17] = 17;
+        faceVertexIndices[18] = 14;
+        faceVertexIndices[19] = 20;
         faceVertexIndices[20] = 7;
-        faceVertexIndices[21] = 3;
-        faceVertexIndices[22] = 1;
-        faceVertexIndices[23] = 5;
+        faceVertexIndices[21] = 6;
+        faceVertexIndices[22] = 19;
+        faceVertexIndices[23] = 23;
+        faceVertexIndices[24] = 18;
+        faceVertexIndices[25] = 12;
+        faceVertexIndices[26] = 15;
+        faceVertexIndices[27] = 3;
+        faceVertexIndices[28] = 9;
+        faceVertexIndices[29] = 22;
+        faceVertexIndices[30] = 2;
+        faceVertexIndices[31] = 8;
+        faceVertexIndices[32] = 11;
+        faceVertexIndices[33] = 13;
+        faceVertexIndices[34] = 0;
+        faceVertexIndices[35] = 4;
 
-        points[0] = usdrt::GfVec3f(-1.0, -1.0, -1.0);
-        points[1] = usdrt::GfVec3f(-1.0, -1.0, 1.0);
-        points[2] = usdrt::GfVec3f(-1.0, 1.0, -1.0);
-        points[3] = usdrt::GfVec3f(-1.0, 1.0, 1.0);
+        points[0] = usdrt::GfVec3f(1.0, 1.0, -1.0);
+        points[1] = usdrt::GfVec3f(1.0, 1.0, -1.0);
+        points[2] = usdrt::GfVec3f(1.0, 1.0, -1.0);
+        points[3] = usdrt::GfVec3f(1.0, -1.0, -1.0);
         points[4] = usdrt::GfVec3f(1.0, -1.0, -1.0);
-        points[5] = usdrt::GfVec3f(1.0, -1.0, 1.0);
-        points[6] = usdrt::GfVec3f(1.0, 1.0, -1.0);
+        points[5] = usdrt::GfVec3f(1.0, -1.0, -1.0);
+        points[6] = usdrt::GfVec3f(1.0, 1.0, 1.0);
         points[7] = usdrt::GfVec3f(1.0, 1.0, 1.0);
+        points[8] = usdrt::GfVec3f(1.0, 1.0, 1.0);
+        points[9] = usdrt::GfVec3f(1.0, -1.0, 1.0);
+        points[10] = usdrt::GfVec3f(1.0, -1.0, 1.0);
+        points[11] = usdrt::GfVec3f(1.0, -1.0, 1.0);
+        points[12] = usdrt::GfVec3f(-1.0, 1.0, -1.0);
+        points[13] = usdrt::GfVec3f(-1.0, 1.0, -1.0);
+        points[14] = usdrt::GfVec3f(-1.0, 1.0, -1.0);
+        points[15] = usdrt::GfVec3f(-1.0, -1.0, -1.0);
+        points[16] = usdrt::GfVec3f(-1.0, -1.0, -1.0);
+        points[17] = usdrt::GfVec3f(-1.0, -1.0, -1.0);
+        points[18] = usdrt::GfVec3f(-1.0, 1.0, 1.0);
+        points[19] = usdrt::GfVec3f(-1.0, 1.0, 1.0);
+        points[20] = usdrt::GfVec3f(-1.0, 1.0, 1.0);
+        points[21] = usdrt::GfVec3f(-1.0, -1.0, 1.0);
+        points[22] = usdrt::GfVec3f(-1.0, -1.0, 1.0);
+        points[23] = usdrt::GfVec3f(-1.0, -1.0, 1.0);
+
+        // normals[0] = usdrt::GfVec3f(0.0, 0.0, -1.0);
+        // normals[1] = usdrt::GfVec3f(0.0, 1.0, 0.0);
+        // normals[2] = usdrt::GfVec3f(1.0, 0.0, 0.0);
+        // normals[3] = usdrt::GfVec3f(0.0, -1.0, 0.0);
+        // normals[4] = usdrt::GfVec3f(0.0, 0.0, -1.0);
+        // normals[5] = usdrt::GfVec3f(1.0, 0.0, 0.0);
+        // normals[6] = usdrt::GfVec3f(0.0, 0.0, 1.0);
+        // normals[7] = usdrt::GfVec3f(0.0, 1.0, 0.0);
+        // normals[8] = usdrt::GfVec3f(1.0, 0.0, 0.0);
+        // normals[9] = usdrt::GfVec3f(0.0, -1.0, 0.0);
+        // normals[10] = usdrt::GfVec3f(0.0, 0.0, 1.0);
+        // normals[11] = usdrt::GfVec3f(1.0, 0.0, 0.0);
+        // normals[12] = usdrt::GfVec3f(-1.0, 0.0, 0.0);
+        // normals[13] = usdrt::GfVec3f(0.0, 0.0, -1.0);
+        // normals[14] = usdrt::GfVec3f(0.0, 1.0, 0.0);
+        // normals[15] = usdrt::GfVec3f(-1.0, 0.0, 0.0);
+        // normals[16] = usdrt::GfVec3f(0.0, -1.0, 0.0);
+        // normals[17] = usdrt::GfVec3f(0.0, 0.0, -1.0);
+        // normals[18] = usdrt::GfVec3f(-1.0, 0.0, 0.0);
+        // normals[19] = usdrt::GfVec3f(0.0, 0.0, 1.0);
+        // normals[20] = usdrt::GfVec3f(0.0, 1.0, 0.0);
+        // normals[21] = usdrt::GfVec3f(-1.0, 0.0, 0.0);
+        // normals[22] = usdrt::GfVec3f(0.0, -1.0, 0.0);
+        // normals[23] = usdrt::GfVec3f(0.0, 0.0, 1.0);
+
+        st[0] = usdrt::GfVec2f(1.0, 0.0);
+        st[1] = usdrt::GfVec2f(0.0, 1.0);
+        st[2] = usdrt::GfVec2f(1.0, 0.0);
+        st[3] = usdrt::GfVec2f(0.0, 0.0);
+        st[4] = usdrt::GfVec2f(0.0, 0.0);
+        st[5] = usdrt::GfVec2f(1.0, 1.0);
+        st[6] = usdrt::GfVec2f(1.0, 0.0);
+        st[7] = usdrt::GfVec2f(0.0, 0.0);
+        st[8] = usdrt::GfVec2f(0.0, 0.0);
+        st[9] = usdrt::GfVec2f(0.0, 1.0);
+        st[10] = usdrt::GfVec2f(1.0, 1.0);
+        st[11] = usdrt::GfVec2f(0.0, 1.0);
+        st[12] = usdrt::GfVec2f(1.0, 0.0);
+        st[13] = usdrt::GfVec2f(1.0, 1.0);
+        st[14] = usdrt::GfVec2f(1.0, 1.0);
+        st[15] = usdrt::GfVec2f(0.0, 0.0);
+        st[16] = usdrt::GfVec2f(1.0, 0.0);
+        st[17] = usdrt::GfVec2f(0.0, 1.0);
+        st[18] = usdrt::GfVec2f(1.0, 1.0);
+        st[19] = usdrt::GfVec2f(0.0, 0.0);
+        st[20] = usdrt::GfVec2f(1.0, 0.0);
+        st[21] = usdrt::GfVec2f(0.0, 1.0);
+        st[22] = usdrt::GfVec2f(1.0, 1.0);
+        st[23] = usdrt::GfVec2f(0.0, 1.0);
 
         worldExtent->SetMin(usdrt::GfVec3d(-1.0, -1.0, -1.0));
         worldExtent->SetMax(usdrt::GfVec3d(1.0, 1.0, 1.0));
 
         *visibility = true;
         primvars[0] = carb::flatcache::TokenC(displayColorToken);
+        primvars[1] = carb::flatcache::TokenC(stToken);
         primvarInterpolations[0] = carb::flatcache::TokenC(constantToken);
+        primvarInterpolations[1] = carb::flatcache::TokenC(vertexToken);
         displayColor[0] = usdrt::GfVec3f(1.0, 0.0, 0.0);
         *worldPosition = usdrt::GfVec3d(0.0, 0.0, 0.0);
         *worldOrientation = usdrt::GfQuatf(1.0);
