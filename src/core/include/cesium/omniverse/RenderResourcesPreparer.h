@@ -11,6 +11,9 @@ namespace cesium::omniverse {
 
 class OmniTileset;
 
+struct TileRenderResources {
+    int tileId;
+};
 struct RendererOptions {
     long stageId;
 };

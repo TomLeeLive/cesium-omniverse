@@ -12,19 +12,23 @@
 namespace cesium::omniverse {
 
 namespace {
+
+struct TileLoadThreadResult {
+    int tileId;
+};
+
 void createFabricPrims(
     int stageId,
     const OmniTileset& tileset,
-    uint64_t tileId,
+    int tileId,
     const glm::dmat4& transform,
     const CesiumGltf::Model& model) {
 
     const auto path = tileset.getUsdPath();
     const auto ecefToUsdTransform = CoordinateSystemUtil::computeEcefToUsdTransformForPrim(
         stageId, Context::instance().getGeoreferenceOrigin(), path);
-    const auto visible = UsdUtil::isPrimVisible(stageId, path);
 
-    GltfToUsd::createFabricPrims(stageId, tileset.getId(), tileId, visible, ecefToUsdTransform, transform, model);
+    GltfToUsd::createFabricPrims(stageId, tileset.getId(), tileId, ecefToUsdTransform, transform, model);
 }
 } // namespace
 
@@ -48,27 +52,43 @@ RenderResourcesPreparer::prepareInLoadThread(
 
     return asyncSystem.runInMainThread([this, asyncSystem, transform, tileLoadResult = std::move(tileLoadResult)]() {
         const auto pModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
-        createFabricPrims(_stageId, _tileset, _tileCount++, transform, *pModel);
-        return asyncSystem.createResolvedFuture(
-            Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
+        int tileId = static_cast<int>(_tileCount++);
+        createFabricPrims(_stageId, _tileset, tileId, transform, *pModel);
+        return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{
+            std::move(tileLoadResult), new TileLoadThreadResult{tileId}});
     });
 
     //setActiveOnAllDescendantMeshes(prim, false);
 }
 
-void* RenderResourcesPreparer::prepareInMainThread(Cesium3DTilesSelection::Tile& tile, void* pLoadThreadResult) {
-    (void)tile;
-    (void)pLoadThreadResult;
+void* RenderResourcesPreparer::prepareInMainThread(
+    [[maybe_unused]] Cesium3DTilesSelection::Tile& tile,
+    void* pLoadThreadResult) {
+    if (pLoadThreadResult) {
+        std::unique_ptr<TileLoadThreadResult> pTileLoadThreadResult{
+            reinterpret_cast<TileLoadThreadResult*>(pLoadThreadResult)};
+        return new TileRenderResources{pTileLoadThreadResult->tileId};
+    }
+
     return nullptr;
 }
 
 void RenderResourcesPreparer::free(
-    Cesium3DTilesSelection::Tile& tile,
+    [[maybe_unused]] Cesium3DTilesSelection::Tile& tile,
     void* pLoadThreadResult,
     void* pMainThreadResult) noexcept {
-    (void)tile;
-    (void)pLoadThreadResult;
-    (void)pMainThreadResult;
+    if (pLoadThreadResult) {
+        const TileLoadThreadResult* pTileLoadThreadResult = reinterpret_cast<TileLoadThreadResult*>(pLoadThreadResult);
+        delete pTileLoadThreadResult;
+    }
+
+    if (pMainThreadResult) {
+        const TileRenderResources* pTileRenderResources = reinterpret_cast<TileRenderResources*>(pMainThreadResult);
+        const auto tileId = pTileRenderResources->tileId;
+        const auto tilesetId = _tileset.getId();
+        UsdUtil::destroyTile(_stageId, tilesetId, tileId);
+        delete pTileRenderResources;
+    }
 }
 
 void* RenderResourcesPreparer::prepareRasterInLoadThread(

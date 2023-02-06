@@ -84,27 +84,36 @@ OmniTileset::OmniTileset(
 
 OmniTileset::~OmniTileset() {}
 
-void OmniTileset::updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates) {
+void OmniTileset::updateFrame(long stageId, const std::vector<Cesium3DTilesSelection::ViewState>& viewStates) {
     const auto& viewUpdate = _tileset->updateView(viewStates);
 
     for (const auto tile : viewUpdate.tilesFadingOut) {
         if (tile->getState() == Cesium3DTilesSelection::TileLoadState::Done) {
-            auto renderContent = tile->getContent().getRenderContent();
-            if (renderContent) {
-                auto renderResources = renderContent->getRenderResources();
-                (void)renderResources;
-                // TODO: setVisible(false);
+            const auto pRenderContent = tile->getContent().getRenderContent();
+            if (pRenderContent) {
+                const auto pRenderResources = pRenderContent->getRenderResources();
+                if (pRenderResources) {
+                    const auto pTileRenderResources = reinterpret_cast<TileRenderResources*>(pRenderResources);
+                    const auto tilesetId = _id;
+                    const auto tileId = pTileRenderResources->tileId;
+                    UsdUtil::setTileVisibility(stageId, tilesetId, tileId, false);
+                }
             }
         }
     }
 
     for (const auto tile : viewUpdate.tilesToRenderThisFrame) {
         if (tile->getState() == Cesium3DTilesSelection::TileLoadState::Done) {
-            const auto renderContent = tile->getContent().getRenderContent();
-            if (renderContent) {
-                auto renderResources = renderContent->getRenderResources();
-                (void)renderResources;
-                // TODO: setVisible(true);
+            const auto pRenderContent = tile->getContent().getRenderContent();
+            if (pRenderContent) {
+                const auto pRenderResources = pRenderContent->getRenderResources();
+                if (pRenderResources) {
+                    const auto pTileRenderResources = reinterpret_cast<TileRenderResources*>(pRenderResources);
+                    const auto tilesetId = _id;
+                    const auto tileId = pTileRenderResources->tileId;
+                    // TODO: setting tile visibility one by one is slow
+                    UsdUtil::setTileVisibility(stageId, tilesetId, tileId, true);
+                }
             }
         }
     }

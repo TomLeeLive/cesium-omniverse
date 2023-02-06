@@ -33,8 +33,10 @@ pxr::SdfPath getChildOfRootPath(long stageId, const std::string& name);
 pxr::SdfPath getChildOfRootPathUnique(long stageId, const std::string& name);
 
 // TODO: are these not generic enough to belong in this file?
-void updatePrimTransforms(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform);
-void updatePrimVisibility(long stageId, int tilesetId, bool visible);
+void setTilesetTransform(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform);
+void setTilesetVisibility(long stageId, int tilesetId, bool visible);
+void setTileVisibility(long stageId, int tilesetId, int tileId, bool visible);
+void destroyTile(long stageId, int tilesetId, int tileId);
 
 std::string printFabricStage(long stageId);
 std::string printUsdrtStage(long stageId);

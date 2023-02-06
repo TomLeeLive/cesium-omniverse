@@ -148,7 +148,7 @@ void Context::updateFrame(
 
         if (ecefToUsdTransform != frameState.ecefToUsdTransform) {
             frameState.ecefToUsdTransform = ecefToUsdTransform;
-            UsdUtil::updatePrimTransforms(stageId, tileset->getId(), ecefToUsdTransform);
+            UsdUtil::setTilesetTransform(stageId, tileset->getId(), ecefToUsdTransform);
         }
 
         // Check for visibility changes and update Fabric prims accordingly
@@ -156,11 +156,11 @@ void Context::updateFrame(
 
         if (visible != frameState.visible) {
             frameState.visible = visible;
-            UsdUtil::updatePrimVisibility(stageId, tileset->getId(), visible);
+            UsdUtil::setTilesetVisibility(stageId, tileset->getId(), visible);
         }
 
         if (!tileset->getSuspendUpdate()) {
-            tileset->updateFrame(_viewStates);
+            tileset->updateFrame(stageId, _viewStates);
         }
     }
 }

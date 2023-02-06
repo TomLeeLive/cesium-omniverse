@@ -17,6 +17,8 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <pxr/usd/sdf/assetPath.h>
+#include <pxr/usd/usdShade/material.h>
+#include <pxr/usd/usdShade/materialBindingAPI.h>
 #include <spdlog/fmt/fmt.h>
 #include <usdrt/gf/range.h>
 #include <usdrt/gf/vec.h>
@@ -30,6 +32,76 @@
 
 #include <numeric>
 #include <optional>
+
+static const char* SCALE_PRIMVAR_ID = "overlayScale";
+static const char* TRANSLATION_PRIMVAR_ID = "overlayTranslation";
+
+// clang-format off
+namespace pxr {
+TF_DEFINE_PRIVATE_TOKENS(
+    _tokens,
+
+    // Tokens used for USD Preview Surface
+    // Notes below copied from helloWorld.cpp in Connect Sample 200.0.0
+    //
+    // Private tokens for building up SdfPaths. We recommend
+    // constructing SdfPaths via tokens, as there is a performance
+    // cost to constructing them directly via strings (effectively,
+    // a table lookup per path element). Similarly, any API which
+    // takes a token as input should use a predefined token
+    // rather than one created on the fly from a string.
+    (a)
+    (add)
+    ((add_subidentifier, "add(float2,float2)"))
+    (b)
+    (clamp)
+    (coord)
+    (data_lookup_uniform_float2)
+    (default_value)
+    (diffuse_color_constant)
+    (diffuseColor)
+    (file)
+    (i)
+    (lookup_color)
+    ((matDefault, "default"))
+    (mdl)
+    (metallic)
+    (multiply)
+    ((multiply_subidentifier, "multiply(float2,float2)"))
+    (name)
+    (normal)
+    (OmniPBR)
+    (out)
+    ((PrimStShaderId, "UsdPrimvarReader_float2"))
+    (RAW)
+    (reflection_roughness_constant)
+    (result)
+    (rgb)
+    (roughness)
+    ((scale_primvar, SCALE_PRIMVAR_ID))
+    (scale_primvar_reader)
+    (sRGB)
+    (st)
+    (st0)
+    (st_0)
+    (st_1)
+    ((stPrimvarName, "frame:stPrimvarName"))
+    (surface)
+    (tex)
+    (texture_coordinate_2d)
+    ((translation_primvar, TRANSLATION_PRIMVAR_ID))
+    (translation_primvar_reader)
+    (UsdPreviewSurface)
+    ((UsdShaderId, "UsdPreviewSurface"))
+    (UsdUVTexture)
+    (varname)
+    (vertex)
+    (wrapS)
+    (wrapT)
+    (wrap_u)
+    (wrap_v));
+}
+// clang-format on
 
 namespace cesium::omniverse::GltfToUsd {
 
@@ -380,103 +452,170 @@ pxr::SdfAssetPath convertTextureToUsd(
     return pxr::SdfAssetPath(assetPath);
 }
 
-void convertPrimitiveToUsdrt(
-    usdrt::UsdStageRefPtr stage,
-    int tilesetId,
-    bool visible,
-    const std::string& primName,
-    const glm::dmat4& ecefToUsdTransform,
-    const glm::dmat4& gltfToEcefTransform,
-    const glm::dmat4& nodeTransform,
-    const CesiumGltf::Model& model,
-    const CesiumGltf::MeshPrimitive& primitive) {
+pxr::UsdShadeShader defineMdlShader_OmniPBR(
+    pxr::UsdStageRefPtr stage,
+    const pxr::SdfPath& materialPath,
+    const pxr::TfToken& shaderName,
+    const pxr::SdfAssetPath& assetPath,
+    const pxr::TfToken& subIdentifier) {
+    auto shader = pxr::UsdShadeShader::Define(stage, materialPath.AppendChild(shaderName));
+    shader.SetSourceAsset(assetPath, pxr::_tokens->mdl);
+    shader.SetSourceAssetSubIdentifier(subIdentifier, pxr::_tokens->mdl);
+    shader.CreateIdAttr(pxr::VtValue(shaderName));
 
-    const auto positions = getPrimitivePositions(model, primitive);
-    const auto indices = getPrimitiveIndices(model, primitive, positions);
-    const auto normals = getPrimitiveNormals(model, primitive, positions, indices);
-    const auto st0 = getPrimitiveUVs(model, primitive, 0);
-    const auto st1 = getPrimitiveUVs(model, primitive, 1);
-    const auto worldExtent = getPrimitiveExtent(model, primitive);
-    const auto faceVertexCounts = getFaceVertexCounts(indices);
+    return shader;
+}
 
-    if (positions.empty() || indices.empty() || normals.empty() || !worldExtent.has_value()) {
-        return;
+pxr::UsdShadeMaterial convertMaterialToUSD_OmniPBR(
+    pxr::UsdStageRefPtr stage,
+    usdrt::UsdStageRefPtr stageUsdrt,
+    const std::string& materialName,
+    const std::vector<pxr::SdfAssetPath>& textureUsdPaths,
+    const bool hasRasterOverlay,
+    const pxr::SdfAssetPath& rasterOverlayPath,
+    const CesiumGltf::Material& material) {
+    const pxr::SdfPath materialPath(fmt::format("/{}", materialName));
+    const usdrt::SdfPath materialPathUsdrt(fmt::format("/{}", materialName));
+    pxr::UsdShadeMaterial materialUsd = pxr::UsdShadeMaterial::Define(stage, materialPath);
+
+    const auto& pbrMetallicRoughness = material.pbrMetallicRoughness;
+    auto pbrShader = defineMdlShader_OmniPBR(
+        stage, materialPath, pxr::_tokens->OmniPBR, pxr::SdfAssetPath("OmniPBR.mdl"), pxr::_tokens->OmniPBR);
+
+    const auto setupDiffuseTexture = [&stage, &materialPath, &pbrShader](const pxr::SdfAssetPath& texturePath) {
+        const auto nvidiaSupportDefinitions = pxr::SdfAssetPath("nvidia/support_definitions.mdl");
+
+        // Set up texture_coordinates_2d shader.
+        auto textureCoordinates2dShader = defineMdlShader_OmniPBR(
+            stage,
+            materialPath,
+            pxr::_tokens->texture_coordinate_2d,
+            nvidiaSupportDefinitions,
+            pxr::_tokens->texture_coordinate_2d);
+
+        const auto iTexCoordInput =
+            textureCoordinates2dShader.CreateInput(pxr::_tokens->i, pxr::SdfValueTypeNames->Int);
+        iTexCoordInput.Set(0);
+        const auto textureCoordinates2dOutput =
+            textureCoordinates2dShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
+
+        // Set up add & divide nodes for translation & scale.
+        auto scalePrimvarReaderShader = defineMdlShader_OmniPBR(
+            stage,
+            materialPath,
+            pxr::_tokens->scale_primvar_reader,
+            nvidiaSupportDefinitions,
+            pxr::_tokens->data_lookup_uniform_float2);
+
+        scalePrimvarReaderShader.CreateInput(pxr::_tokens->default_value, pxr::SdfValueTypeNames->Float2)
+            .Set(pxr::GfVec2f(1.0f, 1.0f));
+        scalePrimvarReaderShader.CreateInput(pxr::_tokens->name, pxr::SdfValueTypeNames->String).Set(SCALE_PRIMVAR_ID);
+
+        const auto scalePrimvarReaderOutput =
+            scalePrimvarReaderShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
+
+        auto scaleShader = defineMdlShader_OmniPBR(
+            stage,
+            materialPath,
+            pxr::_tokens->multiply,
+            nvidiaSupportDefinitions,
+            pxr::_tokens->multiply_subidentifier);
+
+        const auto scaleAInput = scaleShader.CreateInput(pxr::_tokens->a, pxr::SdfValueTypeNames->Float2);
+        scaleAInput.ConnectToSource(textureCoordinates2dOutput);
+        const auto scaleBInput = scaleShader.CreateInput(pxr::_tokens->b, pxr::SdfValueTypeNames->Float2);
+        scaleBInput.ConnectToSource(scalePrimvarReaderOutput);
+
+        const auto scaleOutput = scaleShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
+
+        auto translationPrimvarReader = defineMdlShader_OmniPBR(
+            stage,
+            materialPath,
+            pxr::_tokens->translation_primvar_reader,
+            nvidiaSupportDefinitions,
+            pxr::_tokens->data_lookup_uniform_float2);
+
+        translationPrimvarReader.CreateInput(pxr::_tokens->default_value, pxr::SdfValueTypeNames->Float2)
+            .Set(pxr::GfVec2f(0.0f, 0.0f));
+        translationPrimvarReader.CreateInput(pxr::_tokens->name, pxr::SdfValueTypeNames->String)
+            .Set(TRANSLATION_PRIMVAR_ID);
+
+        const auto translatePrimvarReaderOutput =
+            translationPrimvarReader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
+
+        auto translationShader = defineMdlShader_OmniPBR(
+            stage, materialPath, pxr::_tokens->add, nvidiaSupportDefinitions, pxr::_tokens->add_subidentifier);
+
+        const auto translationAInput = translationShader.CreateInput(pxr::_tokens->a, pxr::SdfValueTypeNames->Float2);
+        translationAInput.ConnectToSource(scaleOutput);
+        const auto translationBInput = translationShader.CreateInput(pxr::_tokens->b, pxr::SdfValueTypeNames->Float2);
+        translationBInput.ConnectToSource(translatePrimvarReaderOutput);
+
+        const auto translationOutput =
+            translationShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Float2);
+
+        // Set up lookup_color shader.
+        auto lookupColorShader = defineMdlShader_OmniPBR(
+            stage, materialPath, pxr::_tokens->lookup_color, nvidiaSupportDefinitions, pxr::_tokens->lookup_color);
+
+        const auto lookupColorTexInput =
+            lookupColorShader.CreateInput(pxr::_tokens->tex, pxr::SdfValueTypeNames->Asset);
+        lookupColorTexInput.Set(texturePath);
+        lookupColorShader.CreateOutput(pxr::_tokens->out, pxr::SdfValueTypeNames->Color3f);
+
+        const auto lookupColorCoordInput =
+            lookupColorShader.CreateInput(pxr::_tokens->coord, pxr::SdfValueTypeNames->Float2);
+        lookupColorCoordInput.ConnectToSource(translationOutput);
+
+        // Set uv wrapping to clamp. 0 = clamp. See
+        // https://github.com/NVIDIA/MDL-SDK/blob/master/src/mdl/compiler/stdmodule/tex.mdl#L36
+        lookupColorShader.CreateInput(pxr::_tokens->wrap_u, pxr::SdfValueTypeNames->Int).Set(0);
+        lookupColorShader.CreateInput(pxr::_tokens->wrap_v, pxr::SdfValueTypeNames->Int).Set(0);
+
+        const auto pbrShaderDiffuseColorInput =
+            pbrShader.CreateInput(pxr::_tokens->diffuse_color_constant, pxr::SdfValueTypeNames->Color3f);
+        pbrShaderDiffuseColorInput.ConnectToSource(lookupColorShader.GetOutput(pxr::_tokens->out));
+
+        // TODO: Eventually we need to actually take the material values from Cesium Native and apply them.
+        pbrShader.CreateInput(pxr::_tokens->reflection_roughness_constant, pxr::SdfValueTypeNames->Float).Set(0.1f);
+    };
+
+    if (hasRasterOverlay) {
+        setupDiffuseTexture(rasterOverlayPath);
+    } else if (pbrMetallicRoughness->baseColorTexture) {
+        const auto baseColorIndex = static_cast<std::size_t>(pbrMetallicRoughness->baseColorTexture->index);
+        const pxr::SdfAssetPath& texturePath = textureUsdPaths[baseColorIndex];
+        setupDiffuseTexture(texturePath);
+    } else {
+        pbrShader.CreateInput(pxr::_tokens->diffuse_color_constant, pxr::SdfValueTypeNames->Vector3f)
+            .Set(pxr::GfVec3f(
+                static_cast<float>(pbrMetallicRoughness->baseColorFactor[0]),
+                static_cast<float>(pbrMetallicRoughness->baseColorFactor[1]),
+                static_cast<float>(pbrMetallicRoughness->baseColorFactor[2])));
     }
 
-    const usdrt::SdfPath primPath(fmt::format("/{}", primName));
+    materialUsd.CreateSurfaceOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
+    materialUsd.CreateDisplacementOutput(pxr::_tokens->mdl)
+        .ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
+    materialUsd.CreateVolumeOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
 
-    const usdrt::VtArray<usdrt::GfVec3f> displayColor = {usdrt::GfVec3f(1.0, 0.0, 0.0)};
+    // // Populate into Fabric
+    // stageUsdrt->GetPrimAtPath(materialPathUsdrt);
 
-    const auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
-    const auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
-    const auto [worldPosition, worldOrientation, worldScale] = UsdUtil::glmToUsdrtMatrixDecomposed(localToUsdTransform);
-
-    // TODO: precreate tokens
-    const usdrt::TfToken faceVertexCountsToken("faceVertexCounts");
-    const usdrt::TfToken faceVertexIndicesToken("faceVertexIndices");
-    const usdrt::TfToken pointsToken("points");
-    const usdrt::TfToken worldExtentToken("_worldExtent");
-    const usdrt::TfToken visibilityToken("visibility");
-    const usdrt::TfToken constantToken("constant");
-    const usdrt::TfToken primvarsToken("primvars");
-    const usdrt::TfToken primvarInterpolationsToken("primvarInterpolations");
-    const usdrt::TfToken displayColorToken("primvars:displayColor");
-    const usdrt::TfToken meshToken("Mesh");
-    const usdrt::TfToken tilesetIdToken("_tilesetId");
-
-    const usdrt::UsdPrim prim = stage->DefinePrim(primPath, meshToken);
-
-    // localToUsdTransform = transform glTF local position to USD world position
-    //
-    // 1. Start with glTF local position
-    // 2. Apply glTF scene graph
-    // 3. Apply y-up to z-up to bring into 3D Tiles coordinate system
-    // 4. Apply tile transform. Now positions are in ECEF coordinates.
-    // 5. Apply Fixed Frame to ENU based on the georeference origin
-    // 6. Apply USD axis conversion
-    // 7. Apply USD unit conversion
-    // 8. Apply Tileset prim transform
-    // 9. End with USD world position
-    //
-    // Here we save localToEcefTransform in the _localMatrix attribute so we can access it later if anything changes
-    // after step 4 and we need to recompute _worldPosition, _worldOrientation, _worldScale
-    // Note that _worldPosition, _worldOrientation, _worldScale override _localMatrix
-    // See http://omniverse-docs.s3-website-us-east-1.amazonaws.com/usdrt/5.0.0/docs/omnihydra_xforms.html
-    const auto xform = usdrt::RtXformable(prim);
-    xform.CreateLocalMatrixAttr(UsdUtil::glmToUsdrtMatrix(localToEcefTransform));
-    xform.CreateWorldPositionAttr(worldPosition);
-    xform.CreateWorldOrientationAttr(worldOrientation);
-    xform.CreateWorldScaleAttr(worldScale);
-
-    // TODO: normals
-    prim.CreateAttribute(faceVertexCountsToken, usdrt::SdfValueTypeNames->IntArray, false).Set(faceVertexCounts);
-    prim.CreateAttribute(faceVertexIndicesToken, usdrt::SdfValueTypeNames->IntArray, false).Set(indices);
-    prim.CreateAttribute(pointsToken, usdrt::SdfValueTypeNames->Point3fArray, false).Set(positions);
-    prim.CreateAttribute(worldExtentToken, usdrt::SdfValueTypeNames->Range3d, false).Set(worldExtent.value());
-    prim.CreateAttribute(visibilityToken, usdrt::SdfValueTypeNames->Bool, false).Set(visible);
-    prim.CreateAttribute(displayColorToken, usdrt::SdfValueTypeNames->Color3fArray, false).Set(displayColor);
-    prim.CreateAttribute(tilesetIdToken, usdrt::SdfValueTypeNames->Int, true).Set(tilesetId);
-
-    // For Create 2022.3.1 you need to have at least one primvar on your Mesh, even if it does nothing, and two
-    // new TokenArray attributes, "primvars", and "primvarInterpolations", which are used internally by Fabric
-    // Scene Delegate. This is a workaround until UsdGeomMesh and UsdGeomPrimvarsAPI become available in USDRT.
-    const usdrt::VtArray<carb::flatcache::TokenC> primvars = {carb::flatcache::TokenC(displayColorToken)};
-    const usdrt::VtArray<carb::flatcache::TokenC> primvarInterp = {carb::flatcache::TokenC(constantToken)};
-
-    prim.CreateAttribute(primvarsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvars);
-    prim.CreateAttribute(primvarInterpolationsToken, usdrt::SdfValueTypeNames->TokenArray, false).Set(primvarInterp);
+    return materialUsd;
 }
 
 void convertPrimitiveToFabric(
     carb::flatcache::StageInProgress& stageInProgress,
     int tilesetId,
-    bool visible,
+    int tileId,
     const std::string& primName,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& gltfToEcefTransform,
     const glm::dmat4& nodeTransform,
     const CesiumGltf::Model& model,
-    const CesiumGltf::MeshPrimitive& primitive) {
+    const CesiumGltf::MeshPrimitive& primitive,
+    const std::vector<pxr::UsdShadeMaterial>& materials) {
 
     auto positions = getPrimitivePositions(model, primitive);
     auto indices = getPrimitiveIndices(model, primitive, positions);
@@ -492,6 +631,8 @@ void convertPrimitiveToFabric(
 
     const carb::flatcache::Path primPath(fmt::format("/{}", primName).c_str());
 
+    const auto materialId = static_cast<uint64_t>(primitive.material);
+
     const auto displayColor = usdrt::GfVec3f(1.0, 0.0, 0.0);
 
     auto localToEcefTransform = gltfToEcefTransform * nodeTransform;
@@ -505,15 +646,19 @@ void convertPrimitiveToFabric(
     const carb::flatcache::Token worldExtentToken("_worldExtent");
     const carb::flatcache::Token visibilityToken("visibility");
     const carb::flatcache::Token constantToken("constant");
+    const carb::flatcache::Token vertexToken("vertex");
     const carb::flatcache::Token primvarsToken("primvars");
     const carb::flatcache::Token primvarInterpolationsToken("primvarInterpolations");
     const carb::flatcache::Token displayColorToken("primvars:displayColor");
+    const carb::flatcache::Token stToken("primvars:st");
     const carb::flatcache::Token meshToken("Mesh");
     const carb::flatcache::Token tilesetIdToken("_tilesetId");
+    const carb::flatcache::Token tileIdToken("_tileId");
     const carb::flatcache::Token worldPositionToken("_worldPosition");
     const carb::flatcache::Token worldOrientationToken("_worldOrientation");
     const carb::flatcache::Token worldScaleToken("_worldScale");
     const carb::flatcache::Token localMatrixToken("_localMatrix");
+    const carb::flatcache::Token materialIdToken("materialId");
 
     const carb::flatcache::Type faceVertexCountsType(
         carb::flatcache::BaseDataType::eInt, 1, 1, carb::flatcache::AttributeRole::eNone);
@@ -539,10 +684,16 @@ void convertPrimitiveToFabric(
     const carb::flatcache::Type displayColorType(
         carb::flatcache::BaseDataType::eFloat, 3, 1, carb::flatcache::AttributeRole::eColor);
 
+    const carb::flatcache::Type stType(
+        carb::flatcache::BaseDataType::eFloat, 2, 1, carb::flatcache::AttributeRole::eTexCoord);
+
     const carb::flatcache::Type meshType(
         carb::flatcache::BaseDataType::eTag, 1, 0, carb::flatcache::AttributeRole::ePrimTypeName);
 
     const carb::flatcache::Type tilesetIdType(
+        carb::flatcache::BaseDataType::eInt, 1, 0, carb::flatcache::AttributeRole::eNone);
+
+    const carb::flatcache::Type tileIdType(
         carb::flatcache::BaseDataType::eInt, 1, 0, carb::flatcache::AttributeRole::eNone);
 
     const carb::flatcache::Type worldPositionType(
@@ -557,12 +708,15 @@ void convertPrimitiveToFabric(
     const carb::flatcache::Type localMatrixType(
         carb::flatcache::BaseDataType::eDouble, 16, 0, carb::flatcache::AttributeRole::eMatrix);
 
+    const carb::flatcache::Type materialIdType(
+        carb::flatcache::BaseDataType::eToken, 1, 0, carb::flatcache::AttributeRole::eNone);
+
     stageInProgress.createPrim(primPath);
 
     stageInProgress.createPrim(primPath);
     stageInProgress.createAttributes(
         primPath,
-        std::array<carb::flatcache::AttrNameAndType, 14>{
+        std::array<carb::flatcache::AttrNameAndType, 17>{
             carb::flatcache::AttrNameAndType{
                 faceVertexCountsType,
                 faceVertexCountsToken,
@@ -596,12 +750,20 @@ void convertPrimitiveToFabric(
                 displayColorToken,
             },
             carb::flatcache::AttrNameAndType{
+                stType,
+                stToken,
+            },
+            carb::flatcache::AttrNameAndType{
                 meshType,
                 meshToken,
             },
             carb::flatcache::AttrNameAndType{
                 tilesetIdType,
                 tilesetIdToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                tileIdType,
+                tileIdToken,
             },
             carb::flatcache::AttrNameAndType{
                 worldPositionType,
@@ -619,14 +781,18 @@ void convertPrimitiveToFabric(
                 localMatrixType,
                 localMatrixToken,
             },
-        });
+            carb::flatcache::AttrNameAndType{
+                materialIdType,
+                materialIdToken,
+            }});
 
     stageInProgress.setArrayAttributeSize(primPath, faceVertexCountsToken, faceVertexCounts.size());
     stageInProgress.setArrayAttributeSize(primPath, faceVertexIndicesToken, indices.size());
     stageInProgress.setArrayAttributeSize(primPath, pointsToken, positions.size());
-    stageInProgress.setArrayAttributeSize(primPath, primvarsToken, 1);
-    stageInProgress.setArrayAttributeSize(primPath, primvarInterpolationsToken, 1);
+    stageInProgress.setArrayAttributeSize(primPath, primvarsToken, 2);
+    stageInProgress.setArrayAttributeSize(primPath, primvarInterpolationsToken, 2);
     stageInProgress.setArrayAttributeSize(primPath, displayColorToken, 1);
+    stageInProgress.setArrayAttributeSize(primPath, stToken, st0.size());
 
     auto faceVertexCountsFabric = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexCountsToken);
     auto faceVertexIndicesFabric = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexIndicesToken);
@@ -637,28 +803,40 @@ void convertPrimitiveToFabric(
     auto primvarInterpolationsFabric =
         stageInProgress.getArrayAttributeWr<carb::flatcache::TokenC>(primPath, primvarInterpolationsToken);
     auto displayColorFabric = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, displayColorToken);
+    auto stFabric = stageInProgress.getArrayAttributeWr<usdrt::GfVec2f>(primPath, stToken);
     auto tilesetIdFabric = stageInProgress.getAttributeWr<int>(primPath, tilesetIdToken);
+    auto tileIdFabric = stageInProgress.getAttributeWr<int>(primPath, tileIdToken);
     auto worldPositionFabric = stageInProgress.getAttributeWr<usdrt::GfVec3d>(primPath, worldPositionToken);
     auto worldOrientationFabric = stageInProgress.getAttributeWr<usdrt::GfQuatf>(primPath, worldOrientationToken);
     auto worldScaleFabric = stageInProgress.getAttributeWr<usdrt::GfVec3f>(primPath, worldScaleToken);
     auto localMatrixFabric = stageInProgress.getAttributeWr<usdrt::GfMatrix4d>(primPath, localMatrixToken);
+    auto materialIdFabric = stageInProgress.getAttributeWr<carb::flatcache::TokenC>(primPath, materialIdToken);
 
     std::copy(faceVertexCounts.begin(), faceVertexCounts.end(), faceVertexCountsFabric.begin());
     std::copy(indices.begin(), indices.end(), faceVertexIndicesFabric.begin());
     std::copy(positions.begin(), positions.end(), pointsFabric.begin());
+    std::copy(st0.begin(), st0.end(), stFabric.begin());
 
     worldExtentFabric->SetMin(usdrt::GfVec3d(-1.0, -1.0, -1.0));
     worldExtentFabric->SetMax(usdrt::GfVec3d(1.0, 1.0, 1.0));
 
-    *visibilityFabric = visible;
+    *visibilityFabric = false;
     primvarsFabric[0] = carb::flatcache::TokenC(displayColorToken);
+    primvarsFabric[1] = carb::flatcache::TokenC(stToken);
     primvarInterpolationsFabric[0] = carb::flatcache::TokenC(constantToken);
+    primvarInterpolationsFabric[1] = carb::flatcache::TokenC(vertexToken);
     displayColorFabric[0] = displayColor;
     *tilesetIdFabric = tilesetId;
+    *tileIdFabric = tileId;
     *worldPositionFabric = worldPosition;
     *worldOrientationFabric = worldOrientation;
     *worldScaleFabric = worldScale;
     *localMatrixFabric = UsdUtil::glmToUsdrtMatrix(localToEcefTransform);
+
+    if (materialId >= 0) {
+        const auto& materialUsd = materials[materialId];
+        *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token(materialUsd.GetPath().GetText()));
+    }
 }
 
 std::string sanitizeAssetPath(const std::string& assetPath) {
@@ -688,13 +866,13 @@ std::string getTexturePrefix(const CesiumGltf::Model& model, const std::string& 
 void createFabricPrims(
     long stageId,
     int tilesetId,
-    uint64_t tileId,
-    bool visible,
+    int tileId,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& tileTransform,
     const CesiumGltf::Model& model) {
-    const auto stage = UsdUtil::getUsdrtStage(stageId);
-    auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
+    const auto stageUsd = UsdUtil::getUsdStage(stageId);
+    const auto stageUsdrt = UsdUtil::getUsdrtStage(stageId);
+    auto stageInProgressFabric = UsdUtil::getFabricStageInProgress(stageId);
 
     auto gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyRtcCenter(model, tileTransform);
     gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyGltfUpAxisTransform(model, gltfToEcefTransform);
@@ -709,44 +887,55 @@ void createFabricPrims(
         textureUsdPaths.emplace_back(convertTextureToUsd(model, model.textures[i], textureName));
     }
 
+    std::vector<pxr::UsdShadeMaterial> materialUSDs;
+    materialUSDs.reserve(model.materials.size());
+
+    for (auto i = 0; i < model.materials.size(); i++) {
+        const auto materialName = fmt::format("{}_material_{}", tileName, i);
+
+        materialUSDs.emplace_back(convertMaterialToUSD_OmniPBR(
+            stageUsd, stageUsdrt, materialName, textureUsdPaths, false, pxr::SdfAssetPath(), model.materials[i]));
+    }
+
     uint64_t primitiveId = 0;
 
     model.forEachPrimitiveInScene(
         -1,
-        [&stage,
-         &stageInProgress,
+        [&stageUsdrt,
+         &stageInProgressFabric,
          &tileName,
          tilesetId,
-         visible,
+         tileId,
          &primitiveId,
          &ecefToUsdTransform,
-         &gltfToEcefTransform](
+         &gltfToEcefTransform,
+         &materialUSDs](
             const CesiumGltf::Model& gltf,
             [[maybe_unused]] const CesiumGltf::Node& node,
             [[maybe_unused]] const CesiumGltf::Mesh& mesh,
             const CesiumGltf::MeshPrimitive& primitive,
             const glm::dmat4& transform) {
             const auto primName = fmt::format("{}_primitive_{}", tileName, primitiveId++);
-            convertPrimitiveToUsdrt(
-                stage,
-                tilesetId,
-                visible,
-                primName,
-                ecefToUsdTransform,
-                gltfToEcefTransform,
-                transform,
-                gltf,
-                primitive);
-            // convertPrimitiveToFabric(
-            //     stageInProgress,
+            // convertPrimitiveToUsdrt(
+            //     stage,
             //     tilesetId,
-            //     visible,
             //     primName,
             //     ecefToUsdTransform,
             //     gltfToEcefTransform,
             //     transform,
             //     gltf,
             //     primitive);
+            convertPrimitiveToFabric(
+                stageInProgressFabric,
+                tilesetId,
+                tileId,
+                primName,
+                ecefToUsdTransform,
+                gltfToEcefTransform,
+                transform,
+                gltf,
+                primitive,
+                materialUSDs);
         });
 }
 } // namespace cesium::omniverse::GltfToUsd

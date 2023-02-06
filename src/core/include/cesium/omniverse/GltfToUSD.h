@@ -10,8 +10,7 @@ namespace cesium::omniverse::GltfToUsd {
 void createFabricPrims(
     long stageId,
     int tilesetId,
-    uint64_t tileId,
-    bool visible,
+    int tileId,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& tileTransform,
     const CesiumGltf::Model& model);

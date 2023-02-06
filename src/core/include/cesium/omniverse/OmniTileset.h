@@ -25,14 +25,13 @@ class OmniTileset {
     OmniTileset(long stageId, int tilesetId, const pxr::SdfPath& usdPath, const std::string& url);
     OmniTileset(long stageId, int tilesetId, const pxr::SdfPath& usdPath, int64_t ionId, const std::string& ionToken);
     ~OmniTileset();
-    void updateFrame(const std::vector<Cesium3DTilesSelection::ViewState>& viewStates);
+    void updateFrame(long stageId, const std::vector<Cesium3DTilesSelection::ViewState>& viewStates);
     void addIonRasterOverlay(const std::string& name, int64_t ionId, const std::string& ionToken);
     const pxr::SdfPath& getUsdPath() const;
     const int getId() const;
     OmniTilesetFrameState& getFrameState();
     bool getSuspendUpdate() const;
     void setSuspendUpdate(bool suspendUpdate);
-
 
   private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> _tileset;

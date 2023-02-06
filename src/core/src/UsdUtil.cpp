@@ -194,7 +194,7 @@ pxr::SdfPath getChildOfRootPathUnique(long stageId, const std::string& name) {
     return path;
 }
 
-void updatePrimTransforms(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform) {
+void setTilesetTransform(long stageId, int tilesetId, const glm::dmat4& ecefToUsdTransform) {
     auto sip = getFabricStageInProgress(stageId);
 
     // These should match the type/name in convertPrimitiveToUsd in GltfToUSD
@@ -230,7 +230,7 @@ void updatePrimTransforms(long stageId, int tilesetId, const glm::dmat4& ecefToU
     }
 }
 
-void updatePrimVisibility(long stageId, int tilesetId, bool visible) {
+void setTilesetVisibility(long stageId, int tilesetId, bool visible) {
     auto sip = getFabricStageInProgress(stageId);
 
     // These should match the type/name in convertPrimitiveToUsd in GltfToUSD
@@ -249,6 +249,76 @@ void updatePrimVisibility(long stageId, int tilesetId, bool visible) {
                 visibilityArray[i] = visible;
             }
         }
+    }
+}
+
+void setTileVisibility(long stageId, int tilesetId, int tileId, bool visible) {
+    auto sip = getFabricStageInProgress(stageId);
+
+    // These should match the type/name in convertPrimitiveToUsd in GltfToUSD
+    carb::flatcache::Type tilesetIdType(carb::flatcache::BaseDataType::eInt, 1, 0);
+
+    carb::flatcache::Token tilesetIdToken("_tilesetId");
+    carb::flatcache::Token tileIdToken("_tileId");
+    carb::flatcache::Token visibilityToken("visibility");
+
+    const auto& buckets = sip.findPrims({carb::flatcache::AttrNameAndType(tilesetIdType, tilesetIdToken)});
+
+    for (auto bucketId = 0; bucketId < buckets.bucketCount(); bucketId++) {
+        const auto tilesetIdArray = sip.getAttributeArrayRd<int>(buckets, bucketId, tilesetIdToken);
+        const auto tileIdArray = sip.getAttributeArrayRd<int>(buckets, bucketId, tileIdToken);
+        const auto visibilityArray = sip.getAttributeArrayWr<bool>(buckets, bucketId, visibilityToken);
+
+        for (auto i = 0; i < tilesetIdArray.size(); i++) {
+            if (tilesetIdArray[i] == tilesetId && tileIdArray[i] == tileId) {
+                visibilityArray[i] = visible;
+            }
+        }
+    }
+}
+
+void destroyTile(long stageId, int tilesetId, int tileId) {
+    auto sip = getFabricStageInProgress(stageId);
+
+    // These should match the type/name in convertPrimitiveToUsd in GltfToUSD
+    carb::flatcache::Type tilesetIdType(carb::flatcache::BaseDataType::eInt, 1, 0);
+
+    carb::flatcache::Token tilesetIdToken("_tilesetId");
+    carb::flatcache::Token tileIdToken("_tileId");
+
+    const auto& buckets = sip.findPrims({carb::flatcache::AttrNameAndType(tilesetIdType, tilesetIdToken)});
+
+    // Reuse the same scratch vector and don't resize its capacity
+    thread_local std::vector<carb::flatcache::Path> primsToDelete;
+    primsToDelete.clear();
+
+    for (auto bucketId = 0; bucketId < buckets.bucketCount(); bucketId++) {
+        const auto tilesetIdArray = sip.getAttributeArrayRd<int>(buckets, bucketId, tilesetIdToken);
+        const auto tileIdArray = sip.getAttributeArrayRd<int>(buckets, bucketId, tileIdToken);
+        const auto primPaths = sip.getPathArray(buckets, bucketId);
+
+        for (auto i = 0; i < tilesetIdArray.size(); i++) {
+            if (tilesetIdArray[i] == tilesetId && tileIdArray[i] == tileId) {
+                primsToDelete.push_back(primPaths[i]);
+            }
+        }
+    }
+
+    for (auto i = 0; i < primsToDelete.size(); i++) {
+        sip.destroyPrim(primsToDelete[i]);
+    }
+
+    // Prims removed from Fabric need special handling for their removal to be reflected in the Hydra render index
+    // This workaround may not be needed in future Kit versions
+    carb::flatcache::Path changeTrackingPath("/TempChangeTracking");
+    carb::flatcache::Token deletedPrimsAttribute("_deletedPrims");
+
+    const auto deletedPrimsSize = sip.getArrayAttributeSize(changeTrackingPath, deletedPrimsAttribute);
+    sip.setArrayAttributeSize(changeTrackingPath, deletedPrimsAttribute, deletedPrimsSize + primsToDelete.size());
+    auto deletedPrimsFabric = sip.getArrayAttributeWr<carb::flatcache::Path>(changeTrackingPath, deletedPrimsAttribute);
+
+    for (auto i = 0; i < primsToDelete.size(); i++) {
+        deletedPrimsFabric[deletedPrimsSize + i] = primsToDelete[i];
     }
 }
 
