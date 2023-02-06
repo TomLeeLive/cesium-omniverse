@@ -447,7 +447,7 @@ pxr::SdfAssetPath convertTextureToUsd(
     ctx.assets.insert({textureName, std::move(inMemoryAsset)});
 
     const auto memCesiumPath = Context::instance().getMemCesiumPath().generic_string();
-    const auto assetPath = fmt::format("{}[{}]", memCesiumPath, textureName);
+    const auto assetPath = fmt::format("{}[{}.bmp]", memCesiumPath, textureName);
 
     return pxr::SdfAssetPath(assetPath);
 }
@@ -465,6 +465,9 @@ pxr::UsdShadeShader defineMdlShader_OmniPBR(
 
     return shader;
 }
+
+bool addedMaterial = false;
+pxr::SdfPath firstMaterialPath;
 
 pxr::UsdShadeMaterial convertMaterialToUSD_OmniPBR(
     pxr::UsdStageRefPtr stage,
@@ -599,8 +602,12 @@ pxr::UsdShadeMaterial convertMaterialToUSD_OmniPBR(
         .ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
     materialUsd.CreateVolumeOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
 
-    // // Populate into Fabric
-    // stageUsdrt->GetPrimAtPath(materialPathUsdrt);
+    if (!addedMaterial) {
+        // Populate into Fabric
+        stageUsdrt->GetPrimAtPath(materialPathUsdrt);
+        addedMaterial = true;
+        firstMaterialPath = materialPath;
+    }
 
     return materialUsd;
 }
@@ -834,8 +841,10 @@ void convertPrimitiveToFabric(
     *localMatrixFabric = UsdUtil::glmToUsdrtMatrix(localToEcefTransform);
 
     if (materialId >= 0) {
-        const auto& materialUsd = materials[materialId];
-        *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token(materialUsd.GetPath().GetText()));
+        (void)materials;
+        // const auto& materialUsd = materials[materialId];
+        // *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token(materialUsd.GetPath().GetText()));
+        *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token("/World/Looks/OmniPBR"));
     }
 }
 
