@@ -466,9 +466,6 @@ pxr::UsdShadeShader defineMdlShader_OmniPBR(
     return shader;
 }
 
-bool addedMaterial = false;
-pxr::SdfPath firstMaterialPath;
-
 pxr::UsdShadeMaterial convertMaterialToUSD_OmniPBR(
     pxr::UsdStageRefPtr stage,
     usdrt::UsdStageRefPtr stageUsdrt,
@@ -583,31 +580,31 @@ pxr::UsdShadeMaterial convertMaterialToUSD_OmniPBR(
         pbrShader.CreateInput(pxr::_tokens->reflection_roughness_constant, pxr::SdfValueTypeNames->Float).Set(0.1f);
     };
 
-    if (hasRasterOverlay) {
-        setupDiffuseTexture(rasterOverlayPath);
-    } else if (pbrMetallicRoughness->baseColorTexture) {
-        const auto baseColorIndex = static_cast<std::size_t>(pbrMetallicRoughness->baseColorTexture->index);
-        const pxr::SdfAssetPath& texturePath = textureUsdPaths[baseColorIndex];
-        setupDiffuseTexture(texturePath);
-    } else {
-        pbrShader.CreateInput(pxr::_tokens->diffuse_color_constant, pxr::SdfValueTypeNames->Vector3f)
-            .Set(pxr::GfVec3f(
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[0]),
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[1]),
-                static_cast<float>(pbrMetallicRoughness->baseColorFactor[2])));
-    }
+    // if (hasRasterOverlay) {
+    //     setupDiffuseTexture(rasterOverlayPath);
+    // } else if (pbrMetallicRoughness->baseColorTexture) {
+    //     const auto baseColorIndex = static_cast<std::size_t>(pbrMetallicRoughness->baseColorTexture->index);
+    //     const pxr::SdfAssetPath& texturePath = textureUsdPaths[baseColorIndex];
+    //     setupDiffuseTexture(texturePath);
+    // } else {
+    pbrShader.CreateInput(pxr::_tokens->diffuse_color_constant, pxr::SdfValueTypeNames->Vector3f)
+        .Set(pxr::GfVec3f(
+            static_cast<float>(pbrMetallicRoughness->baseColorFactor[0]),
+            static_cast<float>(pbrMetallicRoughness->baseColorFactor[1]),
+            static_cast<float>(pbrMetallicRoughness->baseColorFactor[2])));
+    // }
+
+    (void)textureUsdPaths;
+    (void)hasRasterOverlay;
+    (void)rasterOverlayPath;
 
     materialUsd.CreateSurfaceOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
     materialUsd.CreateDisplacementOutput(pxr::_tokens->mdl)
         .ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
     materialUsd.CreateVolumeOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
 
-    if (!addedMaterial) {
-        // Populate into Fabric
-        stageUsdrt->GetPrimAtPath(materialPathUsdrt);
-        addedMaterial = true;
-        firstMaterialPath = materialPath;
-    }
+    // Populate into Fabric
+    stageUsdrt->GetPrimAtPath(materialPathUsdrt);
 
     return materialUsd;
 }
@@ -841,10 +838,9 @@ void convertPrimitiveToFabric(
     *localMatrixFabric = UsdUtil::glmToUsdrtMatrix(localToEcefTransform);
 
     if (materialId >= 0) {
-        (void)materials;
-        // const auto& materialUsd = materials[materialId];
-        // *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token(materialUsd.GetPath().GetText()));
-        *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token("/World/Looks/OmniPBR"));
+        const auto& materialUsd = materials[materialId];
+        *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token(materialUsd.GetPath().GetText()));
+        // *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token("/World/Looks/OmniPBR"));
     }
 }
 
