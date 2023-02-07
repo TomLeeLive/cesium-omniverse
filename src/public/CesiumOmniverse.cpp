@@ -9,12 +9,15 @@
 
 #include <CesiumGeospatial/Cartographic.h>
 #include <carb/PluginUtils.h>
+#include <carb/flatcache/FlatCacheUSD.h>
 #include <pxr/base/vt/array.h>
 #include <pxr/usd/sdf/path.h>
 #include <pxr/usd/sdf/types.h>
 #include <pxr/usd/usd/attribute.h>
 #include <pxr/usd/usd/prim.h>
 #include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdShade/material.h>
+#include <pxr/usd/usdShade/materialBindingAPI.h>
 #include <usdrt/population/IUtils.h>
 #include <usdrt/scenegraph/base/gf/range3d.h>
 #include <usdrt/scenegraph/base/gf/vec3f.h>
@@ -22,8 +25,103 @@
 #include <usdrt/scenegraph/usd/sdf/types.h>
 #include <usdrt/scenegraph/usd/usd/stage.h>
 
+static const char* SCALE_PRIMVAR_ID = "overlayScale";
+static const char* TRANSLATION_PRIMVAR_ID = "overlayTranslation";
+
+// clang-format off
+namespace pxr {
+TF_DEFINE_PRIVATE_TOKENS(
+    _tokens,
+
+    // Tokens used for USD Preview Surface
+    // Notes below copied from helloWorld.cpp in Connect Sample 200.0.0
+    //
+    // Private tokens for building up SdfPaths. We recommend
+    // constructing SdfPaths via tokens, as there is a performance
+    // cost to constructing them directly via strings (effectively,
+    // a table lookup per path element). Similarly, any API which
+    // takes a token as input should use a predefined token
+    // rather than one created on the fly from a string.
+    (a)
+    (add)
+    ((add_subidentifier, "add(float2,float2)"))
+    (b)
+    (clamp)
+    (coord)
+    (data_lookup_uniform_float2)
+    (default_value)
+    (diffuse_color_constant)
+    (diffuseColor)
+    (file)
+    (i)
+    (lookup_color)
+    ((matDefault, "default"))
+    (mdl)
+    (metallic)
+    (multiply)
+    ((multiply_subidentifier, "multiply(float2,float2)"))
+    (name)
+    (normal)
+    (OmniPBR)
+    (out)
+    ((PrimStShaderId, "UsdPrimvarReader_float2"))
+    (RAW)
+    (reflection_roughness_constant)
+    (result)
+    (rgb)
+    (roughness)
+    ((scale_primvar, SCALE_PRIMVAR_ID))
+    (scale_primvar_reader)
+    (sRGB)
+    (st)
+    (st0)
+    (st_0)
+    (st_1)
+    ((stPrimvarName, "frame:stPrimvarName"))
+    (surface)
+    (tex)
+    (texture_coordinate_2d)
+    ((translation_primvar, TRANSLATION_PRIMVAR_ID))
+    (translation_primvar_reader)
+    (UsdPreviewSurface)
+    ((UsdShaderId, "UsdPreviewSurface"))
+    (UsdUVTexture)
+    (varname)
+    (vertex)
+    (wrapS)
+    (wrapT)
+    (wrap_u)
+    (wrap_v));
+}
+// clang-format on
+
 namespace cesium::omniverse {
 
+namespace {
+pxr::UsdShadeMaterial addMaterialUsd(long stageId) {
+    const auto stage = UsdUtil::getUsdStage(stageId);
+
+    // Add material
+    const pxr::SdfPath materialPath("/example_material_usd");
+    const pxr::TfToken shaderName = pxr::_tokens->OmniPBR;
+    const pxr::SdfAssetPath assetPath("OmniPBR.mdl");
+    const pxr::TfToken subIdentifier = pxr::_tokens->OmniPBR;
+    pxr::UsdShadeMaterial materialUsd = pxr::UsdShadeMaterial::Define(stage, materialPath);
+    auto shader = pxr::UsdShadeShader::Define(stage, materialPath.AppendChild(shaderName));
+    shader.SetSourceAsset(assetPath, pxr::_tokens->mdl);
+    shader.SetSourceAssetSubIdentifier(subIdentifier, pxr::_tokens->mdl);
+    shader.CreateIdAttr(pxr::VtValue(shaderName));
+
+    shader.CreateInput(pxr::_tokens->diffuse_color_constant, pxr::SdfValueTypeNames->Vector3f)
+        .Set(pxr::GfVec3f(0.0f, 1.0f, 0.0f));
+
+    materialUsd.CreateSurfaceOutput(pxr::_tokens->mdl).ConnectToSource(shader.ConnectableAPI(), pxr::_tokens->out);
+    materialUsd.CreateDisplacementOutput(pxr::_tokens->mdl).ConnectToSource(shader.ConnectableAPI(), pxr::_tokens->out);
+    materialUsd.CreateVolumeOutput(pxr::_tokens->mdl).ConnectToSource(shader.ConnectableAPI(), pxr::_tokens->out);
+
+    return materialUsd;
+}
+} // namespace
 class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
   protected:
     void init(const char* cesiumExtensionLocation) noexcept override {
@@ -167,6 +265,11 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         prim.CreateAttribute(pxr::TfToken("points"), pxr::SdfValueTypeNames->Point3fArray).Set(points);
         prim.CreateAttribute(pxr::TfToken("primvars:displayColor"), pxr::SdfValueTypeNames->Color3fArray).Set(displayColor);
         // clang-format on
+
+        const auto materialUsd = addMaterialUsd(stageId);
+
+        pxr::UsdShadeMaterialBindingAPI usdMaterialBinding(prim);
+        usdMaterialBinding.Bind(materialUsd);
     }
 
     void addCubeFabric(long stageId) noexcept override {
@@ -464,7 +567,17 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         *worldOrientation = usdrt::GfQuatf(1.0);
         *worldScale = usdrt::GfVec3f(1.0);
         *localMatrix = UsdUtil::glmToUsdrtMatrix(glm::dmat4(1.0));
-        *materialId = carb::flatcache::TokenC(carb::flatcache::Token("/World/Looks/OmniPBR"));
+
+        // Set the material
+        const auto materialUsd = addMaterialUsd(stageId);
+        const auto materialPathUsd = materialUsd.GetPath();
+        const auto materialPathUsdrt = usdrt::SdfPath(materialUsd.GetPath().GetString());
+        const auto materialPathFc = carb::flatcache::asInt(materialPathUsd);
+
+        //const auto stageUsdrt = UsdUtil::getUsdrtStage(stageId);
+        //stageUsdrt->GetPrimAtPath(materialPathUsdrt);
+        // *materialId = carb::flatcache::TokenC{materialPathFc.path};
+        (void)materialId;
     }
 
     void showCubeUsdrt(long stageId) noexcept override {

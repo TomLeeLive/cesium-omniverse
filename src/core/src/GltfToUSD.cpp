@@ -604,7 +604,7 @@ pxr::UsdShadeMaterial convertMaterialToUSD_OmniPBR(
     materialUsd.CreateVolumeOutput(pxr::_tokens->mdl).ConnectToSource(pbrShader.ConnectableAPI(), pxr::_tokens->out);
 
     // Populate into Fabric
-    stageUsdrt->GetPrimAtPath(materialPathUsdrt);
+    //stageUsdrt->GetPrimAtPath(materialPathUsdrt);
 
     return materialUsd;
 }
@@ -837,11 +837,15 @@ void convertPrimitiveToFabric(
     *worldScaleFabric = worldScale;
     *localMatrixFabric = UsdUtil::glmToUsdrtMatrix(localToEcefTransform);
 
-    if (materialId >= 0) {
-        const auto& materialUsd = materials[materialId];
-        *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token(materialUsd.GetPath().GetText()));
-        // *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token("/World/Looks/OmniPBR"));
-    }
+    // if (materialId >= 0) {
+    //     //const auto& materialUsd = materials[materialId];
+    //     //*materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token(materialUsd.GetPath().GetText()));
+    //     // *materialIdFabric = carb::flatcache::TokenC(carb::flatcache::Token("/World/Looks/OmniPBR"));
+    // }
+
+    (void)materialIdFabric;
+    (void)materials;
+    (void)materialId;
 }
 
 std::string sanitizeAssetPath(const std::string& assetPath) {
