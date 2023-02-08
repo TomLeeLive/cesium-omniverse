@@ -223,48 +223,22 @@ class CesiumOmniverseDebugWindow(ui.Window):
             else:  # Terrain is Cesium World Terrain
                 add_cesium_world_terrain()
 
-        def add_cube_usdrt():
+        def add_cube_fabric_existing_material():
             stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.addCubeUsdrt(stage_id)
+            self._cesium_omniverse_interface.addCubeFabricExistingMaterial(stage_id)
 
-        def add_cube_usd():
+        def add_cube_fabric_new_material():
             stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.addCubeUsd(stage_id)
+            self._cesium_omniverse_interface.addCubeFabricNewMaterial(stage_id)
 
-        def add_cube_fabric():
+        def add_cube_fabric_copy_material():
             stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.addCubeFabric(stage_id)
-
-        def remove_cube_usdrt():
-            stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.removeCubeUsdrt(stage_id)
-
-        def show_cube_usdrt():
-            stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.showCubeUsdrt(stage_id)
-
-        def hide_cube_usdrt():
-            stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.hideCubeUsdrt(stage_id)
-
-        def print_usdrt_stage():
-            stage_id = omni.usd.get_context().get_stage_id()
-            usdrt_stage = self._cesium_omniverse_interface.printUsdrtStage(stage_id)
-            self._cesium_message_field.set_value(usdrt_stage)
+            self._cesium_omniverse_interface.addCubeFabricCopyMaterial(stage_id)
 
         def print_fabric_stage():
             stage_id = omni.usd.get_context().get_stage_id()
             usdrt_stage = self._cesium_omniverse_interface.printFabricStage(stage_id)
             self._cesium_message_field.set_value(usdrt_stage)
-
-        def populate_usd_stage_into_fabric():
-            stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.populateUsdStageIntoFabric(stage_id)
-
-        def print_fabric_prim_python():
-            stage_id = omni.usd.get_context().get_stage_id()
-            fabric_info = get_fabric_data_for_prim(stage_id, "/example_material_usd/OmniPBR")
-            self._cesium_message_field.set_value(fabric_info)
 
         with ui.VStack():
             with ui.VStack():
@@ -276,16 +250,10 @@ class CesiumOmniverseDebugWindow(ui.Window):
                 )
                 ui.Button("Create Bing Maps Tileset", clicked_fn=lambda: create_tileset(Tileset.BING_MAPS))
                 ui.Button("Create Cape Canaveral Tileset", clicked_fn=lambda: create_tileset(Tileset.CAPE_CANAVERAL))
-                ui.Button("Add Cube USDRT", clicked_fn=lambda: add_cube_usdrt())
-                ui.Button("Add Cube USD", clicked_fn=lambda: add_cube_usd())
-                ui.Button("Add Cube Fabric", clicked_fn=lambda: add_cube_fabric())
-                ui.Button("Remove Cube USDRT", clicked_fn=lambda: remove_cube_usdrt())
-                ui.Button("Show Cube USDRT", clicked_fn=lambda: show_cube_usdrt())
-                ui.Button("Hide Cube USDRT", clicked_fn=lambda: hide_cube_usdrt())
-                ui.Button("Print USDRT stage", clicked_fn=lambda: print_usdrt_stage())
+                ui.Button("Add Cube Fabric + Existing Material", clicked_fn=lambda: add_cube_fabric_existing_material())
+                ui.Button("Add Cube Fabric + New Material", clicked_fn=lambda: add_cube_fabric_new_material())
+                ui.Button("Add Cube Fabric + Copied Material", clicked_fn=lambda: add_cube_fabric_copy_material())
                 ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
-                ui.Button("Populate USD Stage into Fabric", clicked_fn=lambda: populate_usd_stage_into_fabric())
-                ui.Button("Print Fabric prim (python)", clicked_fn=lambda: print_fabric_prim_python())
             with ui.VStack():
                 self._cesium_message_field = ui.SimpleStringModel("")
                 ui.StringField(self._cesium_message_field, multiline=True, read_only=True)

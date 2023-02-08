@@ -747,14 +747,14 @@ std::string printFabricStage(long stageId) {
             const std::string primPathString = primPath.getText();
             const uint64_t primPathUint64 = carb::flatcache::PathC(primPath).path;
             const uint64_t tabSize = 2;
-            const uint64_t depth = std::count(primPathString.begin(), primPathString.end(), '/');
+            const uint64_t depth = 0;//std::count(primPathString.begin(), primPathString.end(), '/');
             const std::string primSpaces(depth * tabSize, ' ');
             const std::string primInfoSpaces((depth + 1) * tabSize, ' ');
             const std::string attributeSpaces((depth + 2) * tabSize, ' ');
             const std::string attributeInfoSpaces((depth + 3) * tabSize, ' ');
 
             stream << fmt::format("{}Prim: {}\n", primSpaces, primPathString);
-            stream << fmt::format("{}Prim Path Uint64: {}\n", primInfoSpaces, primPathUint64);
+            stream << fmt::format("{}Path (uint64): {}\n", primInfoSpaces, primPathUint64);
             stream << fmt::format("{}Attributes:\n", primInfoSpaces);
 
             for (const auto& attribute : attributes) {
@@ -1160,7 +1160,7 @@ std::string printFabricStage(long stageId) {
 
                 stream << fmt::format("{}Attribute: {}\n", attributeSpaces, attributeNameString);
                 stream << fmt::format("{}Type: {}\n", attributeInfoSpaces, attributeTypeString);
-                stream << fmt::format("{}GPU: {}\n", attributeInfoSpaces, hasFabricGpuData(stageId, primPath, name));
+                //stream << fmt::format("{}GPU: {}\n", attributeInfoSpaces, hasFabricGpuData(stageId, primPath, name));
 
                 if (baseType != carb::flatcache::BaseDataType::eTag) {
                     stream << fmt::format("{}Value: {}\n", attributeInfoSpaces, attributeValue);

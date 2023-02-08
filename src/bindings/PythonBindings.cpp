@@ -35,13 +35,8 @@ PYBIND11_MODULE(CesiumOmniversePythonBindings, m) {
         .def("addIonRasterOverlay", &ICesiumOmniverseInterface::addIonRasterOverlay)
         .def("updateFrame", &ICesiumOmniverseInterface::updateFrame)
         .def("setGeoreferenceOrigin", &ICesiumOmniverseInterface::setGeoreferenceOrigin)
-        .def("addCubeUsdrt", &ICesiumOmniverseInterface::addCubeUsdrt)
-        .def("addCubeUsd", &ICesiumOmniverseInterface::addCubeUsd)
-        .def("addCubeFabric", &ICesiumOmniverseInterface::addCubeFabric)
-        .def("showCubeUsdrt", &ICesiumOmniverseInterface::showCubeUsdrt)
-        .def("hideCubeUsdrt", &ICesiumOmniverseInterface::hideCubeUsdrt)
-        .def("removeCubeUsdrt", &ICesiumOmniverseInterface::removeCubeUsdrt)
-        .def("printUsdrtStage", &ICesiumOmniverseInterface::printUsdrtStage)
-        .def("printFabricStage", &ICesiumOmniverseInterface::printFabricStage)
-        .def("populateUsdStageIntoFabric", &ICesiumOmniverseInterface::populateUsdStageIntoFabric);
+        .def("addCubeFabricExistingMaterial", &ICesiumOmniverseInterface::addCubeFabricExistingMaterial)
+        .def("addCubeFabricNewMaterial", &ICesiumOmniverseInterface::addCubeFabricNewMaterial)
+        .def("addCubeFabricCopyMaterial", &ICesiumOmniverseInterface::addCubeFabricCopyMaterial)
+        .def("printFabricStage", &ICesiumOmniverseInterface::printFabricStage);
 }
