@@ -33,10 +33,10 @@ carb::flatcache::Path addMaterialFabricCopy(long stageId, const char* path) {
     // Create a fabric material that copies an existing material
     auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
-    const carb::flatcache::Path materialCopyPath("/World/Looks/OmniPBR_Yellow");
-    const carb::flatcache::Path materialCopyShaderPath("/World/Looks/OmniPBR_Yellow/Shader");
-    const carb::flatcache::Path materialCopyDisplacementPath("/World/Looks/OmniPBR_Yellow/displacement");
-    const carb::flatcache::Path materialCopySurfacePath("/World/Looks/OmniPBR_Yellow/surface");
+    const carb::flatcache::Path materialCopyPath("/World/Looks/OmniPBR_Green");
+    const carb::flatcache::Path materialCopyShaderPath("/World/Looks/OmniPBR_Green/Shader");
+    const carb::flatcache::Path materialCopyDisplacementPath("/World/Looks/OmniPBR_Green/displacement");
+    const carb::flatcache::Path materialCopySurfacePath("/World/Looks/OmniPBR_Green/surface");
 
     const carb::flatcache::Path materialPath(path);
     const carb::flatcache::Path shaderPath(fmt::format("{}/OmniPBR", path).c_str());
@@ -62,7 +62,7 @@ carb::flatcache::Path addMaterialFabricCopy2(long stageId, const char* path) {
 
     const carb::flatcache::Path materialPath(path);
 
-    const carb::flatcache::Path shaderPath("/World/Looks/OmniPBR_Yellow/Shader");
+    const carb::flatcache::Path shaderPath("/World/Looks/OmniPBR_Green/Shader");
     const auto shaderPathUint64 = carb::flatcache::PathC(shaderPath).path;
 
     const carb::flatcache::Token terminalsToken("_terminals");
@@ -335,7 +335,7 @@ carb::flatcache::Path addMaterialFabric(long stageId, const char* path) {
     parameters[0] = diffuseColorConstantToken;
 
     auto diffuseColorConstant = stageInProgress.getAttributeWr<usdrt::GfVec3f>(shaderPath, diffuseColorConstantToken);
-    *diffuseColorConstant = usdrt::GfVec3f(1.0, 1.0, 0.0);
+    *diffuseColorConstant = usdrt::GfVec3f(0.0, 1.0, 0.0);
 
     return materialPath;
 }
@@ -548,30 +548,30 @@ carb::flatcache::Path addCubeFabric(long stageId, float translation, const char*
     faceVertexIndices[34] = 0;
     faceVertexIndices[35] = 4;
 
-    points[0] = usdrt::GfVec3f(10.0f, 10.0f + translation, -10.0f);
-    points[1] = usdrt::GfVec3f(10.0f, 10.0f + translation, -10.0f);
-    points[2] = usdrt::GfVec3f(10.0f, 10.0f + translation, -10.0f);
-    points[3] = usdrt::GfVec3f(10.0f, -10.0f + translation, -10.0f);
-    points[4] = usdrt::GfVec3f(10.0f, -10.0f + translation, -10.0f);
-    points[5] = usdrt::GfVec3f(10.0f, -10.0f + translation, -10.0f);
-    points[6] = usdrt::GfVec3f(10.0f, 10.0f + translation, 10.0f);
-    points[7] = usdrt::GfVec3f(10.0f, 10.0f + translation, 10.0f);
-    points[8] = usdrt::GfVec3f(10.0f, 10.0f + translation, 10.0f);
-    points[9] = usdrt::GfVec3f(10.0f, -10.0f + translation, 10.0f);
-    points[10] = usdrt::GfVec3f(10.0f, -10.0f + translation, 10.0f);
-    points[11] = usdrt::GfVec3f(10.0f, -10.0f + translation, 10.0f);
-    points[12] = usdrt::GfVec3f(-10.0f, 10.0f + translation, -10.0f);
-    points[13] = usdrt::GfVec3f(-10.0f, 10.0f + translation, -10.0f);
-    points[14] = usdrt::GfVec3f(-10.0f, 10.0f + translation, -10.0f);
-    points[15] = usdrt::GfVec3f(-10.0f, -10.0f + translation, -10.0f);
-    points[16] = usdrt::GfVec3f(-10.0f, -10.0f + translation, -10.0f);
-    points[17] = usdrt::GfVec3f(-10.0f, -10.0f + translation, -10.0f);
-    points[18] = usdrt::GfVec3f(-10.0f, 10.0f + translation, 10.0f);
-    points[19] = usdrt::GfVec3f(-10.0f, 10.0f + translation, 10.0f);
-    points[20] = usdrt::GfVec3f(-10.0f, 10.0f + translation, 10.0f);
-    points[21] = usdrt::GfVec3f(-10.0f, -10.0f + translation, 10.0f);
-    points[22] = usdrt::GfVec3f(-10.0f, -10.0f + translation, 10.0f);
-    points[23] = usdrt::GfVec3f(-10.0f, -10.0f + translation, 10.0f);
+    points[0] = usdrt::GfVec3f(50.0f, 50.0f + translation, -50.0f);
+    points[1] = usdrt::GfVec3f(50.0f, 50.0f + translation, -50.0f);
+    points[2] = usdrt::GfVec3f(50.0f, 50.0f + translation, -50.0f);
+    points[3] = usdrt::GfVec3f(50.0f, -50.0f + translation, -50.0f);
+    points[4] = usdrt::GfVec3f(50.0f, -50.0f + translation, -50.0f);
+    points[5] = usdrt::GfVec3f(50.0f, -50.0f + translation, -50.0f);
+    points[6] = usdrt::GfVec3f(50.0f, 50.0f + translation, 50.0f);
+    points[7] = usdrt::GfVec3f(50.0f, 50.0f + translation, 50.0f);
+    points[8] = usdrt::GfVec3f(50.0f, 50.0f + translation, 50.0f);
+    points[9] = usdrt::GfVec3f(50.0f, -50.0f + translation, 50.0f);
+    points[10] = usdrt::GfVec3f(50.0f, -50.0f + translation, 50.0f);
+    points[11] = usdrt::GfVec3f(50.0f, -50.0f + translation, 50.0f);
+    points[12] = usdrt::GfVec3f(-50.0f, 50.0f + translation, -50.0f);
+    points[13] = usdrt::GfVec3f(-50.0f, 50.0f + translation, -50.0f);
+    points[14] = usdrt::GfVec3f(-50.0f, 50.0f + translation, -50.0f);
+    points[15] = usdrt::GfVec3f(-50.0f, -50.0f + translation, -50.0f);
+    points[16] = usdrt::GfVec3f(-50.0f, -50.0f + translation, -50.0f);
+    points[17] = usdrt::GfVec3f(-50.0f, -50.0f + translation, -50.0f);
+    points[18] = usdrt::GfVec3f(-50.0f, 50.0f + translation, 50.0f);
+    points[19] = usdrt::GfVec3f(-50.0f, 50.0f + translation, 50.0f);
+    points[20] = usdrt::GfVec3f(-50.0f, 50.0f + translation, 50.0f);
+    points[21] = usdrt::GfVec3f(-50.0f, -50.0f + translation, 50.0f);
+    points[22] = usdrt::GfVec3f(-50.0f, -50.0f + translation, 50.0f);
+    points[23] = usdrt::GfVec3f(-50.0f, -50.0f + translation, 50.0f);
 
     st[0] = usdrt::GfVec2f(1.0, 0.0);
     st[1] = usdrt::GfVec2f(0.0, 1.0);
@@ -598,8 +598,8 @@ carb::flatcache::Path addCubeFabric(long stageId, float translation, const char*
     st[22] = usdrt::GfVec2f(1.0, 1.0);
     st[23] = usdrt::GfVec2f(0.0, 1.0);
 
-    worldExtent->SetMin(usdrt::GfVec3d(-10.0f, -10.0f + translation, -10.0f));
-    worldExtent->SetMax(usdrt::GfVec3d(10.0f, 10.0f + translation, 10.0f));
+    worldExtent->SetMin(usdrt::GfVec3d(-50.0f, -50.0f + translation, -50.0f));
+    worldExtent->SetMax(usdrt::GfVec3d(50.0f, 50.0f + translation, 50.0f));
 
     *visibility = true;
     primvars[0] = displayColorToken;
@@ -615,35 +615,6 @@ carb::flatcache::Path addCubeFabric(long stageId, float translation, const char*
     (void)materialId;
 
     return primPath;
-}
-
-void addCubeUsd(long stageId, float translation, const char* path) {
-    const auto stage = UsdUtil::getUsdStage(stageId);
-
-    // Create a cube prim.
-    const pxr::SdfPath primPath(path);
-    const pxr::UsdPrim prim = stage->DefinePrim(primPath, pxr::TfToken("Mesh"));
-
-    const pxr::VtArray<int> faceVertexCounts = {4, 4, 4, 4, 4, 4};
-    const pxr::VtArray<int> faceVertexIndices = {0, 1, 3, 2, 2, 3, 7, 6, 6, 7, 5, 4,
-                                                 4, 5, 1, 0, 2, 6, 4, 0, 7, 3, 1, 5};
-
-    const pxr::VtArray<pxr::GfVec3f> points = {
-        pxr::GfVec3f(-10.0f, -10.0f + translation, -10.0f),
-        pxr::GfVec3f(-10.0f, -10.0f + translation, 10.0f),
-        pxr::GfVec3f(-10.0f, 10.0f + translation, -10.0f),
-        pxr::GfVec3f(-10.0f, 10.0f + translation, 10.0f),
-        pxr::GfVec3f(10.0f, -10.0f + translation, -10.0f),
-        pxr::GfVec3f(10.0f, -10.0f + translation, 10.0f),
-        pxr::GfVec3f(10.0f, 10.0f + translation, -10.0f),
-        pxr::GfVec3f(10.0f, 10.0f + translation, 10.0f)};
-
-    pxr::VtArray<pxr::GfVec3f> displayColor = {pxr::GfVec3f(1.0, 0.0, 0.0)};
-
-    prim.CreateAttribute(pxr::TfToken("faceVertexCounts"), pxr::SdfValueTypeNames->IntArray).Set(faceVertexCounts);
-    prim.CreateAttribute(pxr::TfToken("faceVertexIndices"), pxr::SdfValueTypeNames->IntArray).Set(faceVertexIndices);
-    prim.CreateAttribute(pxr::TfToken("points"), pxr::SdfValueTypeNames->Point3fArray).Set(points);
-    prim.CreateAttribute(pxr::TfToken("primvars:displayColor"), pxr::SdfValueTypeNames->Color3fArray).Set(displayColor);
 }
 
 } // namespace
@@ -717,10 +688,10 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
     void addCubeFabricNewMaterial(long stageId) noexcept override {
         // Create a mesh and material directly in Fabric
-        // This doesn't work: red material that indicates something went wrong
+        // This doesn't work: red material - something went wrong
         auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
-        const auto fabricPrimPath = addCubeFabric(stageId, 110.0f, "/prim_fabric_new_material");
+        const auto fabricPrimPath = addCubeFabric(stageId, 150.0f, "/prim_fabric_new_material");
         const auto fabricMaterialPath = addMaterialFabric(stageId, "/material_fabric");
 
         const carb::flatcache::Token materialIdToken("materialId");
@@ -732,7 +703,7 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     void addCubeFabricCopyMaterial(long stageId) noexcept override {
         // Create a mesh and material directly in Fabric. The material is copied from an existing material.
         // Make sure to open yellow_green.usda first
-        // This doesn't work: red material that indicates something went wrong
+        // This doesn't work: red material - something went wrong
         auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
         const auto fabricPrimPath = addCubeFabric(stageId, 300.0f, "/prim_fabric_copy_material");
