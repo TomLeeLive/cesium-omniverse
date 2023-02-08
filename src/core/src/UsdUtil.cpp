@@ -350,6 +350,22 @@ std::ostream& operator<<(std::ostream& os, const BoolWrapper& boolWrapper) {
     return os;
 }
 
+// TODO: the asset always refers to `\0` empty string and causes this class to be all zeros, which gets printed as "" in << operator
+class AssetWrapper {
+  private:
+    uint64_t padding[8];
+
+  public:
+    friend std::ostream& operator<<(std::ostream& os, const AssetWrapper& assetWrapper);
+};
+
+std::ostream& operator<<(std::ostream& os, const AssetWrapper& assetWrapper) {
+    const auto& padding = assetWrapper.padding;
+    os << "bytes: " << padding[0] << " " << padding[1] << " " << padding[2] << " " << padding[3] << " " << padding[4] << " "
+       << padding[5] << " " << padding[6] << " " << padding[7];
+    return os;
+}
+
 template <typename T> std::string toString(const T& value) {
     return (std::stringstream() << value).str();
 }
@@ -684,6 +700,12 @@ std::string printUsdrtPrim(const usdrt::UsdPrim& prim, const bool printChildren)
     return stream.str();
 }
 
+inline bool hasFabricGpuData(long stageId, const carb::flatcache::Path& path, const carb::flatcache::Token& attr) {
+    auto sip = getFabricStageInProgress(stageId);
+    auto validBits = sip.getAttributeValidBits(path, attr);
+    return uint32_t(validBits & carb::flatcache::ValidMirrors::eCudaGPU) != 0;
+}
+
 } // namespace
 
 std::string printUsdrtStage(long stageId) {
@@ -723,6 +745,7 @@ std::string printFabricStage(long stageId) {
 
         for (const auto& primPath : primPaths) {
             const std::string primPathString = primPath.getText();
+            const uint64_t primPathUint64 = carb::flatcache::PathC(primPath).path;
             const uint64_t tabSize = 2;
             const uint64_t depth = std::count(primPathString.begin(), primPathString.end(), '/');
             const std::string primSpaces(depth * tabSize, ' ');
@@ -731,6 +754,7 @@ std::string printFabricStage(long stageId) {
             const std::string attributeInfoSpaces((depth + 3) * tabSize, ' ');
 
             stream << fmt::format("{}Prim: {}\n", primSpaces, primPathString);
+            stream << fmt::format("{}Prim Path Uint64: {}\n", primInfoSpaces, primPathUint64);
             stream << fmt::format("{}Attributes:\n", primInfoSpaces);
 
             for (const auto& attribute : attributes) {
@@ -752,6 +776,20 @@ std::string printFabricStage(long stageId) {
                 // but we don't really care at the moment since we're always interfacing with Fabric via USDRT.
                 if (arrayDepth == 0) {
                     switch (baseType) {
+                        case carb::flatcache::BaseDataType::eAsset: {
+                            switch (componentCount) {
+                                case 1: {
+                                    attributeValue =
+                                        printAttributeValueFabric<false, AssetWrapper, 1>(sip, primPath, name);
+                                    break;
+                                }
+                                default: {
+                                    typeNotSupported = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
                         case carb::flatcache::BaseDataType::eToken: {
                             switch (componentCount) {
                                 case 1: {
@@ -926,6 +964,20 @@ std::string printFabricStage(long stageId) {
                     }
                 } else if (arrayDepth == 1) {
                     switch (baseType) {
+                        case carb::flatcache::BaseDataType::eAsset: {
+                            switch (componentCount) {
+                                case 1: {
+                                    attributeValue =
+                                        printAttributeValueFabric<true, AssetWrapper, 1>(sip, primPath, name);
+                                    break;
+                                }
+                                default: {
+                                    typeNotSupported = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
                         case carb::flatcache::BaseDataType::eToken: {
                             switch (componentCount) {
                                 case 1: {
@@ -1108,6 +1160,7 @@ std::string printFabricStage(long stageId) {
 
                 stream << fmt::format("{}Attribute: {}\n", attributeSpaces, attributeNameString);
                 stream << fmt::format("{}Type: {}\n", attributeInfoSpaces, attributeTypeString);
+                stream << fmt::format("{}GPU: {}\n", attributeInfoSpaces, hasFabricGpuData(stageId, primPath, name));
 
                 if (baseType != carb::flatcache::BaseDataType::eTag) {
                     stream << fmt::format("{}Value: {}\n", attributeInfoSpaces, attributeValue);

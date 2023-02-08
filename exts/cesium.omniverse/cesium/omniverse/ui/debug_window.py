@@ -13,6 +13,7 @@ from pxr import Gf, Sdf
 import asyncio
 from ..bindings import ICesiumOmniverseInterface
 from ..utils.utils import wait_n_frames
+from .fabric import get_fabric_data_for_prim
 
 
 class Tileset(Enum):
@@ -260,6 +261,11 @@ class CesiumOmniverseDebugWindow(ui.Window):
             stage_id = omni.usd.get_context().get_stage_id()
             self._cesium_omniverse_interface.populateUsdStageIntoFabric(stage_id)
 
+        def print_fabric_prim_python():
+            stage_id = omni.usd.get_context().get_stage_id()
+            fabric_info = get_fabric_data_for_prim(stage_id, "/example_material_usd/OmniPBR")
+            self._cesium_message_field.set_value(fabric_info)
+
         with ui.VStack():
             with ui.VStack():
                 ui.Button("Update Frame", clicked_fn=lambda: start_update_frame())
@@ -279,6 +285,7 @@ class CesiumOmniverseDebugWindow(ui.Window):
                 ui.Button("Print USDRT stage", clicked_fn=lambda: print_usdrt_stage())
                 ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
                 ui.Button("Populate USD Stage into Fabric", clicked_fn=lambda: populate_usd_stage_into_fabric())
+                ui.Button("Print Fabric prim (python)", clicked_fn=lambda: print_fabric_prim_python())
             with ui.VStack():
                 self._cesium_message_field = ui.SimpleStringModel("")
                 ui.StringField(self._cesium_message_field, multiline=True, read_only=True)

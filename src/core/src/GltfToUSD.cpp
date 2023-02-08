@@ -798,6 +798,7 @@ void convertPrimitiveToFabric(
     stageInProgress.setArrayAttributeSize(primPath, displayColorToken, 1);
     stageInProgress.setArrayAttributeSize(primPath, stToken, st0.size());
 
+    // TODO: usually getArrayAttributeWr should read Token not TokenC. Be aware of reference counting behavior.
     auto faceVertexCountsFabric = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexCountsToken);
     auto faceVertexIndicesFabric = stageInProgress.getArrayAttributeWr<int>(primPath, faceVertexIndicesToken);
     auto pointsFabric = stageInProgress.getArrayAttributeWr<usdrt::GfVec3f>(primPath, pointsToken);
