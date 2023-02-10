@@ -29,72 +29,6 @@ namespace cesium::omniverse {
 
 namespace {
 
-carb::flatcache::Path addMaterialFabricCopy(long stageId, const char* path) {
-    // Create a fabric material that copies an existing material
-    auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
-
-    const carb::flatcache::Path materialCopyPath("/World/Looks/OmniPBR_Green");
-    const carb::flatcache::Path materialCopyShaderPath("/World/Looks/OmniPBR_Green/Shader");
-    const carb::flatcache::Path materialCopyDisplacementPath("/World/Looks/OmniPBR_Green/displacement");
-    const carb::flatcache::Path materialCopySurfacePath("/World/Looks/OmniPBR_Green/surface");
-
-    const carb::flatcache::Path materialPath(path);
-    const carb::flatcache::Path shaderPath(fmt::format("{}/OmniPBR", path).c_str());
-    const carb::flatcache::Path displacementPath(fmt::format("{}/displacement", path).c_str());
-    const carb::flatcache::Path surfacePath(fmt::format("{}/surface", path).c_str());
-
-    stageInProgress.createPrim(materialPath);
-    stageInProgress.createPrim(shaderPath);
-    stageInProgress.createPrim(displacementPath);
-    stageInProgress.createPrim(surfacePath);
-
-    stageInProgress.copyAttributes(materialCopyPath, materialPath);
-    stageInProgress.copyAttributes(materialCopyShaderPath, shaderPath);
-    stageInProgress.copyAttributes(materialCopyDisplacementPath, displacementPath);
-    stageInProgress.copyAttributes(materialCopySurfacePath, surfacePath);
-
-    return materialPath;
-}
-
-carb::flatcache::Path addMaterialFabricCopy2(long stageId, const char* path) {
-    // Create a fabric material that uses an existing material's shader
-    auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
-
-    const carb::flatcache::Path materialPath(path);
-
-    const carb::flatcache::Path shaderPath("/World/Looks/OmniPBR_Green/Shader");
-    const auto shaderPathUint64 = carb::flatcache::PathC(shaderPath).path;
-
-    const carb::flatcache::Token terminalsToken("_terminals");
-    const carb::flatcache::Token materialToken("Material");
-
-    const carb::flatcache::Type terminalsType(
-        carb::flatcache::BaseDataType::eUInt64, 1, 1, carb::flatcache::AttributeRole::eNone);
-
-    const carb::flatcache::Type materialType(
-        carb::flatcache::BaseDataType::eTag, 1, 0, carb::flatcache::AttributeRole::ePrimTypeName);
-
-    stageInProgress.createPrim(materialPath);
-    stageInProgress.createAttributes(
-        materialPath,
-        std::array<carb::flatcache::AttrNameAndType, 2>{
-            carb::flatcache::AttrNameAndType{
-                terminalsType,
-                terminalsToken,
-            },
-            carb::flatcache::AttrNameAndType{
-                materialType,
-                materialToken,
-            }});
-
-    stageInProgress.setArrayAttributeSize(materialPath, terminalsToken, 2);
-    auto terminals = stageInProgress.getArrayAttributeWr<uint64_t>(materialPath, terminalsToken);
-    terminals[0] = shaderPathUint64;
-    terminals[1] = shaderPathUint64;
-
-    return materialPath;
-}
-
 carb::flatcache::Path addMaterialFabric(long stageId, const char* path) {
     auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
@@ -126,9 +60,7 @@ carb::flatcache::Path addMaterialFabric(long stageId, const char* path) {
     const carb::flatcache::Token shaderToken("Shader");
 
     const carb::flatcache::Token omniPbrToken("OmniPBR");
-    const carb::flatcache::Token infoIdValueToken(
-        "C:\\users\\slilley\\code\\cesium-omniverse\\extern\\nvidia\\app\\kit\\mdl\\core\\Base\\OmniPBR.mdl");
-    // const carb::flatcache::Token infoIdValueToken("OmniPBR.mdl");
+    const carb::flatcache::Token infoIdValueToken("OmniPBR.mdl");
 
     // Material
     const carb::flatcache::Type terminalsType(
@@ -203,87 +135,93 @@ carb::flatcache::Path addMaterialFabric(long stageId, const char* path) {
     terminals[0] = shaderPathUint64;
     terminals[1] = shaderPathUint64;
 
-    // // Displacement
-    // stageInProgress.createPrim(displacementPath);
-    // stageInProgress.createAttributes(
-    //     displacementPath,
-    //     std::array<carb::flatcache::AttrNameAndType, 7>{
-    //         carb::flatcache::AttrNameAndType{
-    //             nodePathsType,
-    //             nodePathsToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsOutputIdType,
-    //             relationshipsOutputIdToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsInputIdType,
-    //             relationshipsInputIdToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             primvarsType,
-    //             primvarsToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsInputNameType,
-    //             relationshipsInputNameToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsOutputNameType,
-    //             relationshipsOutputNameToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             materialNetworkType,
-    //             materialNetworkToken,
-    //         }});
+    // Displacement
+    stageInProgress.createPrim(displacementPath);
+    stageInProgress.createAttributes(
+        displacementPath,
+        std::array<carb::flatcache::AttrNameAndType, 7>{
+            carb::flatcache::AttrNameAndType{
+                nodePathsType,
+                nodePathsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsOutputIdType,
+                relationshipsOutputIdToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsInputIdType,
+                relationshipsInputIdToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                primvarsType,
+                primvarsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsInputNameType,
+                relationshipsInputNameToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsOutputNameType,
+                relationshipsOutputNameToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                materialNetworkType,
+                materialNetworkToken,
+            }});
 
-    // stageInProgress.setArrayAttributeSize(displacementPath, nodePathsToken, 0);
-    // stageInProgress.setArrayAttributeSize(displacementPath, relationshipsOutputIdToken, 0);
-    // stageInProgress.setArrayAttributeSize(displacementPath, relationshipsInputIdToken, 0);
-    // stageInProgress.setArrayAttributeSize(displacementPath, primvarsToken, 0);
-    // stageInProgress.setArrayAttributeSize(displacementPath, relationshipsInputNameToken, 0);
-    // stageInProgress.setArrayAttributeSize(displacementPath, relationshipsOutputNameToken, 0);
+    stageInProgress.setArrayAttributeSize(displacementPath, nodePathsToken, 1);
+    auto nodePathsDisplacement = stageInProgress.getArrayAttributeWr<uint64_t>(displacementPath, nodePathsToken);
+    nodePathsDisplacement[0] = shaderPathUint64;
 
-    // // Surface
-    // stageInProgress.createPrim(surfacePath);
-    // stageInProgress.createAttributes(
-    //     surfacePath,
-    //     std::array<carb::flatcache::AttrNameAndType, 7>{
-    //         carb::flatcache::AttrNameAndType{
-    //             nodePathsType,
-    //             nodePathsToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsOutputIdType,
-    //             relationshipsOutputIdToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsInputIdType,
-    //             relationshipsInputIdToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             primvarsType,
-    //             primvarsToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsInputNameType,
-    //             relationshipsInputNameToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             relationshipsOutputNameType,
-    //             relationshipsOutputNameToken,
-    //         },
-    //         carb::flatcache::AttrNameAndType{
-    //             materialNetworkType,
-    //             materialNetworkToken,
-    //         }});
+    stageInProgress.setArrayAttributeSize(displacementPath, relationshipsOutputIdToken, 0);
+    stageInProgress.setArrayAttributeSize(displacementPath, relationshipsInputIdToken, 0);
+    stageInProgress.setArrayAttributeSize(displacementPath, primvarsToken, 0);
+    stageInProgress.setArrayAttributeSize(displacementPath, relationshipsInputNameToken, 0);
+    stageInProgress.setArrayAttributeSize(displacementPath, relationshipsOutputNameToken, 0);
 
-    // stageInProgress.setArrayAttributeSize(surfacePath, nodePathsToken, 0);
-    // stageInProgress.setArrayAttributeSize(surfacePath, relationshipsOutputIdToken, 0);
-    // stageInProgress.setArrayAttributeSize(surfacePath, relationshipsInputIdToken, 0);
-    // stageInProgress.setArrayAttributeSize(surfacePath, primvarsToken, 0);
-    // stageInProgress.setArrayAttributeSize(surfacePath, relationshipsInputNameToken, 0);
-    // stageInProgress.setArrayAttributeSize(surfacePath, relationshipsOutputNameToken, 0);
+    // Surface
+    stageInProgress.createPrim(surfacePath);
+    stageInProgress.createAttributes(
+        surfacePath,
+        std::array<carb::flatcache::AttrNameAndType, 7>{
+            carb::flatcache::AttrNameAndType{
+                nodePathsType,
+                nodePathsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsOutputIdType,
+                relationshipsOutputIdToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsInputIdType,
+                relationshipsInputIdToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                primvarsType,
+                primvarsToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsInputNameType,
+                relationshipsInputNameToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                relationshipsOutputNameType,
+                relationshipsOutputNameToken,
+            },
+            carb::flatcache::AttrNameAndType{
+                materialNetworkType,
+                materialNetworkToken,
+            }});
+
+    stageInProgress.setArrayAttributeSize(surfacePath, nodePathsToken, 1);
+    auto nodePathsSurface = stageInProgress.getArrayAttributeWr<uint64_t>(surfacePath, nodePathsToken);
+    nodePathsSurface[0] = shaderPathUint64;
+
+    stageInProgress.setArrayAttributeSize(surfacePath, relationshipsOutputIdToken, 0);
+    stageInProgress.setArrayAttributeSize(surfacePath, relationshipsInputIdToken, 0);
+    stageInProgress.setArrayAttributeSize(surfacePath, primvarsToken, 0);
+    stageInProgress.setArrayAttributeSize(surfacePath, relationshipsInputNameToken, 0);
+    stageInProgress.setArrayAttributeSize(surfacePath, relationshipsOutputNameToken, 0);
 
     // Shader
     stageInProgress.createPrim(shaderPath);
@@ -406,7 +344,7 @@ carb::flatcache::Path addCubeFabric(long stageId, float translation, const char*
         carb::flatcache::BaseDataType::eDouble, 16, 0, carb::flatcache::AttributeRole::eMatrix);
 
     const carb::flatcache::Type materialIdType(
-        carb::flatcache::BaseDataType::eToken, 1, 0, carb::flatcache::AttributeRole::eNone);
+        carb::flatcache::BaseDataType::eUInt64, 1, 0, carb::flatcache::AttributeRole::eNone);
 
     stageInProgress.createPrim(primPath);
     stageInProgress.createAttributes(
@@ -679,11 +617,11 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
         const auto fabricPrimPath = addCubeFabric(stageId, 0.0f, "/prim_fabric_existing_material");
 
-        const carb::flatcache::Token greenMaterialPrimPath("/World/Looks/OmniPBR_Green");
+        const carb::flatcache::Path greenMaterialPrimPath("/World/Looks/OmniPBR_Green");
         const carb::flatcache::Token materialIdToken("materialId");
 
-        const auto materialId = stageInProgress.getAttributeWr<carb::flatcache::Token>(fabricPrimPath, materialIdToken);
-        *materialId = greenMaterialPrimPath;
+        const auto materialId = stageInProgress.getAttributeWr<uint64_t>(fabricPrimPath, materialIdToken);
+        *materialId = carb::flatcache::PathC(greenMaterialPrimPath).path;
     }
 
     void addCubeFabricNewMaterial(long stageId) noexcept override {
@@ -696,23 +634,8 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
         const carb::flatcache::Token materialIdToken("materialId");
 
-        const auto materialId = stageInProgress.getAttributeWr<carb::flatcache::Token>(fabricPrimPath, materialIdToken);
-        *materialId = carb::flatcache::Token(fabricMaterialPath.getText());
-    }
-
-    void addCubeFabricCopyMaterial(long stageId) noexcept override {
-        // Create a mesh and material directly in Fabric. The material is copied from an existing material.
-        // Make sure to open yellow_green.usda first
-        // This doesn't work: red material - something went wrong
-        auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
-
-        const auto fabricPrimPath = addCubeFabric(stageId, 300.0f, "/prim_fabric_copy_material");
-        const auto fabricMaterialPath = addMaterialFabricCopy(stageId, "/material_fabric_copy");
-
-        const carb::flatcache::Token materialIdToken("materialId");
-
-        const auto materialId = stageInProgress.getAttributeWr<carb::flatcache::Token>(fabricPrimPath, materialIdToken);
-        *materialId = carb::flatcache::Token(fabricMaterialPath.getText());
+        const auto materialId = stageInProgress.getAttributeWr<uint64_t>(fabricPrimPath, materialIdToken);
+        *materialId = carb::flatcache::PathC(fabricMaterialPath).path;
     }
 
     std::string printFabricStage(long stageId) noexcept override {

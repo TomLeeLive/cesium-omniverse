@@ -37,6 +37,5 @@ PYBIND11_MODULE(CesiumOmniversePythonBindings, m) {
         .def("setGeoreferenceOrigin", &ICesiumOmniverseInterface::setGeoreferenceOrigin)
         .def("addCubeFabricExistingMaterial", &ICesiumOmniverseInterface::addCubeFabricExistingMaterial)
         .def("addCubeFabricNewMaterial", &ICesiumOmniverseInterface::addCubeFabricNewMaterial)
-        .def("addCubeFabricCopyMaterial", &ICesiumOmniverseInterface::addCubeFabricCopyMaterial)
         .def("printFabricStage", &ICesiumOmniverseInterface::printFabricStage);
 }

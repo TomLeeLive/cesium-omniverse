@@ -448,7 +448,7 @@ Each workspace contains recommended extensions and settings for VSCode developme
     {
       "name": "Kit App",
       "preLaunchTask": "Build Only (debug)",
-      "program": "${workspaceFolder}/extern/nvidia/app/kit/kit",
+      "program": "${workspaceFolder}/extern/nvidia/_build/target-deps/kit-sdk/kit",
       "args": [
         "${workspaceFolder}/apps/cesium.omniverse.app.kit"
       ],
@@ -530,7 +530,7 @@ Each workspace contains recommended extensions and settings for VSCode developme
     {
       "name": "Kit App",
       "preLaunchTask": "Build Only (debug)",
-      "program": "${workspaceFolder}/extern/nvidia/app/kit/kit.exe",
+      "program": "${workspaceFolder}/extern/nvidia/_build/target-deps/kit-sdk/kit.exe",
       "args": [
         "${workspaceFolder}/apps/cesium.omniverse.app.kit"
       ],

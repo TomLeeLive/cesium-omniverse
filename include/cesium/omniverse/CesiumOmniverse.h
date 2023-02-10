@@ -99,7 +99,6 @@ class ICesiumOmniverseInterface {
     // DEBUG
     virtual void addCubeFabricExistingMaterial(long stageId) noexcept = 0;
     virtual void addCubeFabricNewMaterial(long stageId) noexcept = 0;
-    virtual void addCubeFabricCopyMaterial(long stageId) noexcept = 0;
 
     /**
      * @brief Print the Fabric stage.
