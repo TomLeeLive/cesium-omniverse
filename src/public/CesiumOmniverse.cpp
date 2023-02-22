@@ -609,24 +609,8 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
         Context::instance().setGeoreferenceOrigin(cartographic);
     }
 
-    void addCubeFabricExistingMaterial(long stageId) noexcept override {
-        // Create a mesh directly in Fabric and assign an existing material
-        // Make sure to open yellow_green.usda first
-        // This works
-        auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
-
-        const auto fabricPrimPath = addCubeFabric(stageId, 0.0f, "/prim_fabric_existing_material");
-
-        const carb::flatcache::Path greenMaterialPrimPath("/World/Looks/OmniPBR_Green");
-        const carb::flatcache::Token materialIdToken("materialId");
-
-        const auto materialId = stageInProgress.getAttributeWr<uint64_t>(fabricPrimPath, materialIdToken);
-        *materialId = carb::flatcache::PathC(greenMaterialPrimPath).path;
-    }
-
     void addCubeFabricNewMaterial(long stageId) noexcept override {
         // Create a mesh and material directly in Fabric
-        // This doesn't work: red material - something went wrong
         auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
 
         const auto fabricPrimPath = addCubeFabric(stageId, 150.0f, "/prim_fabric_new_material");
@@ -636,6 +620,31 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
 
         const auto materialId = stageInProgress.getAttributeWr<uint64_t>(fabricPrimPath, materialIdToken);
         *materialId = carb::flatcache::PathC(fabricMaterialPath).path;
+    }
+
+    void assignExistingMaterial(long stageId) noexcept override {
+        // Assign an existing material to the cube
+        // Make sure to open yellow_green.usda first
+        auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
+
+        const carb::flatcache::Path fabricPrimPath("/prim_fabric_new_material");
+        const carb::flatcache::Path greenMaterialPath("/World/Looks/OmniPBR_Green");
+
+        const carb::flatcache::Token materialIdToken("materialId");
+
+        const auto materialId = stageInProgress.getAttributeWr<uint64_t>(fabricPrimPath, materialIdToken);
+        *materialId = carb::flatcache::PathC(greenMaterialPath).path;
+    }
+
+    void changeMaterialColor(long stageId) noexcept override {
+        // Change the material diffuse color constant
+        auto stageInProgress = UsdUtil::getFabricStageInProgress(stageId);
+
+        const carb::flatcache::Path shaderPath("/material_fabric/OmniPBR");
+        const carb::flatcache::Token diffuseColorConstantToken("diffuse_color_constant");
+        auto diffuseColorConstant =
+            stageInProgress.getAttributeWr<usdrt::GfVec3f>(shaderPath, diffuseColorConstantToken);
+        *diffuseColorConstant = usdrt::GfVec3f(0.0, 0.0, 1.0);
     }
 
     std::string printFabricStage(long stageId) noexcept override {

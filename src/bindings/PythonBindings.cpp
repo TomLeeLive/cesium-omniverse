@@ -35,7 +35,8 @@ PYBIND11_MODULE(CesiumOmniversePythonBindings, m) {
         .def("addIonRasterOverlay", &ICesiumOmniverseInterface::addIonRasterOverlay)
         .def("updateFrame", &ICesiumOmniverseInterface::updateFrame)
         .def("setGeoreferenceOrigin", &ICesiumOmniverseInterface::setGeoreferenceOrigin)
-        .def("addCubeFabricExistingMaterial", &ICesiumOmniverseInterface::addCubeFabricExistingMaterial)
         .def("addCubeFabricNewMaterial", &ICesiumOmniverseInterface::addCubeFabricNewMaterial)
+        .def("assignExistingMaterial", &ICesiumOmniverseInterface::assignExistingMaterial)
+        .def("changeMaterialColor", &ICesiumOmniverseInterface::changeMaterialColor)
         .def("printFabricStage", &ICesiumOmniverseInterface::printFabricStage);
 }

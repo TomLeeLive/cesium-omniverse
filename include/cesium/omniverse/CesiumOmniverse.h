@@ -97,8 +97,9 @@ class ICesiumOmniverseInterface {
     virtual void setGeoreferenceOrigin(double longitude, double latitude, double height) noexcept = 0;
 
     // DEBUG
-    virtual void addCubeFabricExistingMaterial(long stageId) noexcept = 0;
     virtual void addCubeFabricNewMaterial(long stageId) noexcept = 0;
+    virtual void assignExistingMaterial(long stageId) noexcept = 0;
+    virtual void changeMaterialColor(long stageId) noexcept = 0;
 
     /**
      * @brief Print the Fabric stage.

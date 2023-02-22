@@ -223,13 +223,17 @@ class CesiumOmniverseDebugWindow(ui.Window):
             else:  # Terrain is Cesium World Terrain
                 add_cesium_world_terrain()
 
-        def add_cube_fabric_existing_material():
-            stage_id = omni.usd.get_context().get_stage_id()
-            self._cesium_omniverse_interface.addCubeFabricExistingMaterial(stage_id)
-
         def add_cube_fabric_new_material():
             stage_id = omni.usd.get_context().get_stage_id()
             self._cesium_omniverse_interface.addCubeFabricNewMaterial(stage_id)
+
+        def assign_existing_material():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.assignExistingMaterial(stage_id)
+
+        def change_material_color():
+            stage_id = omni.usd.get_context().get_stage_id()
+            self._cesium_omniverse_interface.changeMaterialColor(stage_id)
 
         def print_fabric_stage():
             stage_id = omni.usd.get_context().get_stage_id()
@@ -246,8 +250,9 @@ class CesiumOmniverseDebugWindow(ui.Window):
                 )
                 ui.Button("Create Bing Maps Tileset", clicked_fn=lambda: create_tileset(Tileset.BING_MAPS))
                 ui.Button("Create Cape Canaveral Tileset", clicked_fn=lambda: create_tileset(Tileset.CAPE_CANAVERAL))
-                ui.Button("Add Cube Fabric + Existing Material", clicked_fn=lambda: add_cube_fabric_existing_material())
                 ui.Button("Add Cube Fabric + New Material", clicked_fn=lambda: add_cube_fabric_new_material())
+                ui.Button("Assign existing material", clicked_fn=lambda: assign_existing_material())
+                ui.Button("Change material color", clicked_fn=lambda: change_material_color())
                 ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
             with ui.VStack():
                 self._cesium_message_field = ui.SimpleStringModel("")
