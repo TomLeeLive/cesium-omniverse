@@ -617,7 +617,9 @@ int count = 0;
 } // namespace
 
 void addManyCubes() {
-    for (int i = 0; i < 100; i++) {
+    paths.reserve(10000);
+
+    for (int i = 0; i < 1100; i++) {
         const auto path = pxr::SdfPath(fmt::format("/cube_{}", count++));
         const auto positions = pxr::VtArray<pxr::GfVec3f>{
             pxr::GfVec3f(1.0f, 1.0f, -1.0f),   pxr::GfVec3f(1.0f, 1.0f, -1.0f),   pxr::GfVec3f(1.0f, 1.0f, -1.0f),
@@ -657,6 +659,7 @@ void removeManyCubes() {
     for (const auto& path : paths) {
         removeFabricPrim(path);
     }
+    paths.clear();
 }
 
 } // namespace cesium::omniverse::FabricUtil
