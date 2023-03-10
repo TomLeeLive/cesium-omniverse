@@ -21,11 +21,12 @@ struct TileLoadThreadResult {
 } // namespace
 
 FabricPrepareRenderResources::FabricPrepareRenderResources(const OmniTileset& tileset)
-    : _tileset(tileset) {}
+    : _tileset(tileset)
+    , _tilesetId(tileset.getTilesetId()) {}
 
 FabricPrepareRenderResources::~FabricPrepareRenderResources() {
     if (UsdUtil::hasStage()) {
-        FabricStageUtil::removeTileset(_tileset.getTilesetId());
+        FabricStageUtil::removeTileset(_tilesetId);
     }
 }
 
@@ -50,7 +51,7 @@ FabricPrepareRenderResources::prepareInLoadThread(
                 Context::instance().getGeoreferenceOrigin(), _tileset.getPath());
 
             const auto addTileResults = FabricStageUtil::addTile(
-                _tileset.getTilesetId(),
+                _tilesetId,
                 Context::instance().getNextTileId(),
                 ecefToUsdTransform,
                 transform,
@@ -166,7 +167,7 @@ void FabricPrepareRenderResources::attachRasterInMainThread(
         UsdUtil::computeEcefToUsdTransformForPrim(Context::instance().getGeoreferenceOrigin(), _tileset.getPath());
 
     const auto addTileResults = FabricStageUtil::addTileWithImagery(
-        _tileset.getTilesetId(),
+        _tilesetId,
         Context::instance().getNextTileId(),
         ecefToUsdTransform,
         pTileRenderResources->tileTransform,

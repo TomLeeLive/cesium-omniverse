@@ -60,5 +60,6 @@ class FabricPrepareRenderResources : public Cesium3DTilesSelection::IPrepareRend
 
   private:
     const OmniTileset& _tileset;
+    const int64_t _tilesetId;
 };
 } // namespace cesium::omniverse

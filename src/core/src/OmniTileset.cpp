@@ -27,8 +27,7 @@
 namespace cesium::omniverse {
 
 OmniTileset::OmniTileset(const pxr::SdfPath& tilesetPath)
-    : _tilesetPath(tilesetPath)
-    , _tilesetId(Context::instance().getNextTilesetId()) {
+    : _tilesetPath(tilesetPath) {
     reload();
 }
 
@@ -199,6 +198,7 @@ int64_t OmniTileset::getTilesetId() const {
 }
 
 void OmniTileset::reload() {
+    _tilesetId = Context::instance().getNextTilesetId();
     _renderResourcesPreparer = std::make_shared<FabricPrepareRenderResources>(*this);
     auto& context = Context::instance();
     const auto asyncSystem = CesiumAsync::AsyncSystem(context.getTaskProcessor());
