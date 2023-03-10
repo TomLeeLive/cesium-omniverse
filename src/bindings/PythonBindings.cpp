@@ -60,7 +60,10 @@ PYBIND11_MODULE(CesiumOmniversePythonBindings, m) {
         .def("update_troubleshooting_details", py::overload_cast<const char*, int64_t, int64_t, uint64_t, uint64_t>(&ICesiumOmniverseInterface::updateTroubleshootingDetails))
         .def("print_fabric_stage", &ICesiumOmniverseInterface::printFabricStage)
         .def("credits_available", &ICesiumOmniverseInterface::creditsAvailable)
-        .def("get_credits", &ICesiumOmniverseInterface::getCredits);
+        .def("get_credits", &ICesiumOmniverseInterface::getCredits)
+        .def("add_many_cubes", &ICesiumOmniverseInterface::addManyCubes)
+        .def("remove_many_cubes", &ICesiumOmniverseInterface::removeManyCubes);
+
     // clang-format on
 
     py::class_<CesiumIonSession, std::shared_ptr<CesiumIonSession>>(m, "CesiumIonSession")

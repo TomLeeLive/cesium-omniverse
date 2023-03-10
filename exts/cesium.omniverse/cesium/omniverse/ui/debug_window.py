@@ -125,6 +125,12 @@ class CesiumOmniverseDebugWindow(ui.Window):
         def open_troubleshooting_window():
             CesiumTroubleshooterWindow(self._cesium_omniverse_interface, "Testing", 1, 0, "Testing")
 
+        def add_many_cubes():
+            self._cesium_omniverse_interface.add_many_cubes()
+
+        def remove_many_cubes():
+            self._cesium_omniverse_interface.remove_many_cubes()
+
         with ui.VStack():
             ui.Button(
                 "Create Cesium World Terrain Tileset", clicked_fn=lambda: create_tileset(Tileset.CESIUM_WORLD_TERRAIN)
@@ -135,6 +141,8 @@ class CesiumOmniverseDebugWindow(ui.Window):
             ui.Button("Reload all Tilesets", clicked_fn=lambda: reload_all_tilesets())
             ui.Button("Open Troubleshooter", clicked_fn=lambda: open_troubleshooting_window())
             ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
+            ui.Button("Add Many Cubes", clicked_fn=lambda: add_many_cubes())
+            ui.Button("Remove Many Cubes", clicked_fn=lambda: remove_many_cubes())
             with ui.VStack():
                 self._cesium_message_field = ui.SimpleStringModel("")
                 ui.StringField(self._cesium_message_field, multiline=True, read_only=True)
