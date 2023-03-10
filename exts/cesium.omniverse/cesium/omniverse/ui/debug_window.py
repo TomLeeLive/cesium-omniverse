@@ -50,10 +50,18 @@ class CesiumOmniverseDebugWindow(ui.Window):
             fabric_stage = self._cesium_omniverse_interface.print_fabric_stage()
             self._cesium_message_field.set_value(fabric_stage)
 
+        def add_many_cubes():
+            self._cesium_omniverse_interface.add_many_cubes()
+
+        def remove_many_cubes():
+            self._cesium_omniverse_interface.remove_many_cubes()
+
         with ui.VStack():
             ui.Button("Remove all Tilesets", clicked_fn=lambda: remove_all_tilesets())
             ui.Button("Reload all Tilesets", clicked_fn=lambda: reload_all_tilesets())
             ui.Button("Print Fabric stage", clicked_fn=lambda: print_fabric_stage())
+            ui.Button("Add Many Cubes", clicked_fn=lambda: add_many_cubes())
+            ui.Button("Remove Many Cubes", clicked_fn=lambda: remove_many_cubes())
             with ui.VStack():
                 self._cesium_message_field = ui.SimpleStringModel("")
                 ui.StringField(self._cesium_message_field, multiline=True, read_only=True)

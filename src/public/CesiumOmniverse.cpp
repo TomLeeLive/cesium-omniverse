@@ -179,6 +179,14 @@ class CesiumOmniversePlugin : public ICesiumOmniverseInterface {
     std::vector<std::pair<std::string, bool>> getCredits() noexcept override {
         return Context::instance().getCredits();
     }
+
+    void addManyCubes() noexcept override {
+        FabricUtil::addManyCubes();
+    }
+
+    void removeManyCubes() noexcept override {
+        FabricUtil::removeManyCubes();
+    }
 };
 } // namespace cesium::omniverse
 

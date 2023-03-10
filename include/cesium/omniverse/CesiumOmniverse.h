@@ -240,6 +240,9 @@ class ICesiumOmniverseInterface {
 
     virtual bool creditsAvailable() noexcept = 0;
     virtual std::vector<std::pair<std::string, bool>> getCredits() noexcept = 0;
+
+    virtual void addManyCubes() noexcept = 0;
+    virtual void removeManyCubes() noexcept = 0;
 };
 
 } // namespace cesium::omniverse
