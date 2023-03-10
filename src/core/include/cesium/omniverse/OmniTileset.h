@@ -59,7 +59,6 @@ class OmniTileset {
     void updateView(const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height);
 
     std::unique_ptr<Cesium3DTilesSelection::Tileset> _tileset;
-    std::shared_ptr<FabricPrepareRenderResources> _renderResourcesPreparer;
     const Cesium3DTilesSelection::ViewUpdateResult* _pViewUpdateResult;
 
     pxr::SdfPath _tilesetPath;

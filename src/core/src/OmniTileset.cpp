@@ -193,13 +193,13 @@ int64_t OmniTileset::getTilesetId() const {
 }
 
 void OmniTileset::reload() {
-    _tilesetId = Context::instance().getNextTilesetId();
-    _renderResourcesPreparer = std::make_shared<FabricPrepareRenderResources>(*this);
     auto& context = Context::instance();
+    _tilesetId = Context::instance().getNextTilesetId();
+    const auto renderResourcesPreparer = std::make_shared<FabricPrepareRenderResources>(*this);
     const auto asyncSystem = CesiumAsync::AsyncSystem(context.getTaskProcessor());
     const auto externals = Cesium3DTilesSelection::TilesetExternals{
         context.getHttpAssetAccessor(),
-        _renderResourcesPreparer,
+        renderResourcesPreparer,
         std::move(asyncSystem),
         context.getCreditSystem(),
         context.getLogger()};
