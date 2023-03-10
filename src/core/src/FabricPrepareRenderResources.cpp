@@ -50,37 +50,21 @@ FabricPrepareRenderResources::prepareInLoadThread(
             const auto ecefToUsdTransform = UsdUtil::computeEcefToUsdTransformForPrim(
                 Context::instance().getGeoreferenceOrigin(), _tileset.getPath());
 
-            FabricStageUtil::AddTileResults totalResults;
-
-            for (int i = 0; i < 10; i++) {
-                auto addTileResults = FabricStageUtil::addTile(
-                    _tilesetId,
-                    Context::instance().getNextTileId(),
-                    ecefToUsdTransform,
-                    transform,
-                    *pModel,
-                    _tileset.getSmoothNormals());
-                totalResults.geomPaths.insert(
-                    totalResults.geomPaths.end(),
-                    std::make_move_iterator(addTileResults.geomPaths.begin()),
-                    std::make_move_iterator(addTileResults.geomPaths.end()));
-                totalResults.allPrimPaths.insert(
-                    totalResults.allPrimPaths.end(),
-                    std::make_move_iterator(addTileResults.allPrimPaths.begin()),
-                    std::make_move_iterator(addTileResults.allPrimPaths.end()));
-                totalResults.textureAssetNames.insert(
-                    totalResults.textureAssetNames.end(),
-                    std::make_move_iterator(addTileResults.textureAssetNames.begin()),
-                    std::make_move_iterator(addTileResults.textureAssetNames.end()));
-            }
+            const auto addTileResults = FabricStageUtil::addTile(
+                _tilesetId,
+                Context::instance().getNextTileId(),
+                ecefToUsdTransform,
+                transform,
+                *pModel,
+                _tileset.getSmoothNormals());
 
             return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{
                 std::move(tileLoadResult),
                 new TileLoadThreadResult{
                     transform,
-                    std::move(totalResults.geomPaths),
-                    std::move(totalResults.allPrimPaths),
-                    std::move(totalResults.textureAssetNames),
+                    std::move(addTileResults.geomPaths),
+                    std::move(addTileResults.allPrimPaths),
+                    std::move(addTileResults.textureAssetNames),
                 }});
         }
 
