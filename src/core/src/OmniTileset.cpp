@@ -185,12 +185,7 @@ bool OmniTileset::getSuspendUpdate() const {
 }
 
 bool OmniTileset::getSmoothNormals() const {
-    auto tileset = UsdUtil::getCesiumTileset(_tilesetPath);
-
-    bool smoothNormals;
-    tileset.GetSmoothNormalsAttr().Get<bool>(&smoothNormals);
-
-    return smoothNormals;
+    return true;
 }
 
 int64_t OmniTileset::getTilesetId() const {
