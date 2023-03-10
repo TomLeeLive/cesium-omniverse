@@ -8,6 +8,7 @@
 #include <CesiumGltf/AccessorView.h>
 #include <CesiumGltf/Model.h>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/random.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <pxr/base/gf/range3d.h>
 #include <pxr/base/gf/vec2f.h>
@@ -146,7 +147,7 @@ getPrimitivePositions(const CesiumGltf::Model& model, const CesiumGltf::MeshPrim
 
     for (auto i = 0; i < positionView.size(); i++) {
         const auto& position = positionView[i];
-        usdPositions.push_back(pxr::GfVec3f(position.x, position.y, position.z));
+        usdPositions.push_back(pxr::GfVec3f(position.x + glm::linearRand<float>(0.0, 1.0), position.y, position.z));
     }
 
     return usdPositions;
