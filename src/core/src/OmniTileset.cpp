@@ -352,8 +352,7 @@ void OmniTileset::updateView(const glm::dmat4& viewMatrix, const glm::dmat4& pro
                 const auto pRenderResources = pRenderContent->getRenderResources();
                 if (pRenderResources) {
                     const auto pTileRenderResources = reinterpret_cast<TileRenderResources*>(pRenderResources);
-                    const auto& geomPaths = pTileRenderResources->geomPaths;
-                    FabricStageUtil::setTileVisibility(geomPaths, false);
+                    FabricStageUtil::setTileVisibility(pTileRenderResources->tileId, false);
                 }
             }
         }
@@ -367,8 +366,7 @@ void OmniTileset::updateView(const glm::dmat4& viewMatrix, const glm::dmat4& pro
                 const auto pRenderResources = pRenderContent->getRenderResources();
                 if (pRenderResources) {
                     const auto pTileRenderResources = reinterpret_cast<TileRenderResources*>(pRenderResources);
-                    const auto& geomPaths = pTileRenderResources->geomPaths;
-                    FabricStageUtil::setTileVisibility(geomPaths, visible);
+                    FabricStageUtil::setTileVisibility(pTileRenderResources->tileId, visible);
                 }
             }
         }

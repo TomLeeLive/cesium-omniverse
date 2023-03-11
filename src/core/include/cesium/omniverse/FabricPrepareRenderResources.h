@@ -14,8 +14,7 @@ class OmniTileset;
 
 struct TileRenderResources {
     glm::dmat4 tileTransform;
-    std::vector<pxr::SdfPath> geomPaths;
-    std::vector<pxr::SdfPath> allPrimPaths;
+    int64_t tileId;
     std::vector<std::string> textureAssetNames;
 };
 

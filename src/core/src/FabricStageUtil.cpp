@@ -985,37 +985,8 @@ AddTileResults addTile(
 
     std::vector<std::string> textureAssetNames;
     std::vector<pxr::SdfAssetPath> textureAssetPaths;
-    std::vector<pxr::SdfPath> materialPaths;
-    std::vector<pxr::SdfPath> allPrimPaths;
-
-    if (!disableMaterials()) {
-        textureAssetPaths.reserve(model.textures.size());
-        textureAssetNames.reserve(model.textures.size());
-        for (size_t i = 0; i < model.textures.size(); ++i) {
-            const auto textureAssetPath = getTextureAssetPath(model, tilesetId, tileId, i);
-            textureAssetPaths.push_back(textureAssetPath.assetPath);
-            textureAssetNames.push_back(textureAssetPath.assetName);
-            addTexture(textureAssetPath.assetName, GltfUtil::getImageCesium(model, model.textures[i]));
-        }
-
-        materialPaths.reserve(model.materials.size());
-
-        for (size_t i = 0; i < model.materials.size(); i++) {
-            auto materialPath = getMaterialPath(tilesetId, tileId, i);
-            const auto materialPrimPaths =
-                addMaterial(tilesetId, tileId, materialPath, textureAssetPaths, model, model.materials[i]);
-
-            materialPaths.emplace_back(std::move(materialPath));
-            allPrimPaths.insert(
-                allPrimPaths.begin(),
-                std::make_move_iterator(materialPrimPaths.begin()),
-                std::make_move_iterator(materialPrimPaths.end()));
-        }
-    }
 
     uint64_t primitiveId = 0;
-
-    std::vector<pxr::SdfPath> geomPaths;
 
     model.forEachPrimitiveInScene(
         -1,
@@ -1024,8 +995,6 @@ AddTileResults addTile(
          &primitiveId,
          &ecefToUsdTransform,
          &gltfToEcefTransform,
-         &materialPaths,
-         &geomPaths,
          smoothNormals](
             const CesiumGltf::Model& gltf,
             [[maybe_unused]] const CesiumGltf::Node& node,
@@ -1042,15 +1011,12 @@ AddTileResults addTile(
                 transform,
                 gltf,
                 primitive,
-                materialPaths,
+                {},
                 0,
                 smoothNormals);
-            geomPaths.emplace_back(std::move(geomPath));
         });
 
-    allPrimPaths.insert(allPrimPaths.begin(), geomPaths.begin(), geomPaths.end());
-
-    return AddTileResults{geomPaths, allPrimPaths, textureAssetNames};
+    return AddTileResults{tileId, textureAssetNames};
 }
 
 AddTileResults addTileWithImagery(
@@ -1060,48 +1026,18 @@ AddTileResults addTileWithImagery(
     const glm::dmat4& tileTransform,
     const CesiumGltf::Model& model,
     bool smoothNormals,
-    const CesiumGltf::ImageCesium& image,
-    const std::string& imageryName,
-    const CesiumGeometry::Rectangle& imageryRectangle,
-    const glm::dvec2& imageryUvTranslation,
-    const glm::dvec2& imageryUvScale,
+    [[maybe_unused]] const CesiumGltf::ImageCesium& image,
+    [[maybe_unused]] const std::string& imageryName,
+    [[maybe_unused]] const CesiumGeometry::Rectangle& imageryRectangle,
+    [[maybe_unused]] const glm::dvec2& imageryUvTranslation,
+    [[maybe_unused]] const glm::dvec2& imageryUvScale,
     uint64_t imageryUvSetIndex) {
     auto gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyRtcCenter(model, tileTransform);
     gltfToEcefTransform = Cesium3DTilesSelection::GltfUtilities::applyGltfUpAxisTransform(model, gltfToEcefTransform);
 
     std::vector<std::string> textureAssetNames;
-    std::vector<pxr::SdfPath> materialPaths;
-    std::vector<pxr::SdfPath> allPrimPaths;
-
-    if (!disableMaterials()) {
-        const auto imageryAssetPath = getImageryAssetPath(imageryName, imageryRectangle);
-        addTexture(imageryAssetPath.assetName, image);
-        textureAssetNames.push_back(imageryAssetPath.assetName);
-
-        materialPaths.reserve(model.materials.size());
-
-        for (size_t i = 0; i < model.materials.size(); i++) {
-            auto materialPath = getMaterialPath(tilesetId, tileId, i);
-            const auto materialPrimPaths = addMaterialImagery(
-                tilesetId,
-                tileId,
-                materialPath,
-                imageryAssetPath.assetPath,
-                model.materials[i],
-                imageryUvTranslation,
-                imageryUvScale);
-
-            materialPaths.emplace_back(std::move(materialPath));
-            allPrimPaths.insert(
-                allPrimPaths.begin(),
-                std::make_move_iterator(materialPrimPaths.begin()),
-                std::make_move_iterator(materialPrimPaths.end()));
-        }
-    }
 
     uint64_t primitiveId = 0;
-
-    std::vector<pxr::SdfPath> geomPaths;
 
     model.forEachPrimitiveInScene(
         -1,
@@ -1110,8 +1046,6 @@ AddTileResults addTileWithImagery(
          &primitiveId,
          &ecefToUsdTransform,
          &gltfToEcefTransform,
-         &materialPaths,
-         &geomPaths,
          imageryUvSetIndex,
          smoothNormals](
             const CesiumGltf::Model& gltf,
@@ -1129,39 +1063,12 @@ AddTileResults addTileWithImagery(
                 transform,
                 gltf,
                 primitive,
-                materialPaths,
+                {},
                 imageryUvSetIndex,
                 smoothNormals);
-            geomPaths.emplace_back(std::move(geomPath));
         });
 
-    allPrimPaths.insert(allPrimPaths.begin(), geomPaths.begin(), geomPaths.end());
-
-    return AddTileResults{geomPaths, allPrimPaths, textureAssetNames};
-}
-
-void removeTile(const std::vector<pxr::SdfPath>& allPrimPaths, const std::vector<std::string>& textureAssetNames) {
-    auto sip = UsdUtil::getFabricStageInProgress();
-
-    for (const auto& primPath : allPrimPaths) {
-        sip.destroyPrim(carb::flatcache::asInt(primPath));
-    }
-
-    deletePrimsFabric(allPrimPaths);
-
-    for (const auto& textureAssetName : textureAssetNames) {
-        removeTexture(textureAssetName);
-    }
-}
-
-void setTileVisibility(const std::vector<pxr::SdfPath>& geomPaths, bool visible) {
-    auto sip = UsdUtil::getFabricStageInProgress();
-
-    for (const auto& geomPath : geomPaths) {
-        auto worldVisibilityFabric =
-            sip.getAttributeWr<bool>(carb::flatcache::asInt(geomPath), FabricTokens::_worldVisibility);
-        *worldVisibilityFabric = visible;
-    }
+    return AddTileResults{tileId, textureAssetNames};
 }
 
 void removeTileset(int64_t tilesetId) {
@@ -1189,6 +1096,51 @@ void removeTileset(int64_t tilesetId) {
     }
 
     deletePrimsFabric(primsToDelete);
+}
+
+void removeTile(int64_t tileId, [[maybe_unused]] const std::vector<std::string>& textureAssetNames) {
+    auto sip = UsdUtil::getFabricStageInProgress();
+
+    const auto buckets =
+        sip.findPrims({carb::flatcache::AttrNameAndType(FabricTypes::_cesium_tileId, FabricTokens::_cesium_tileId)});
+
+    std::vector<uint64_t> primsToDelete;
+
+    for (size_t bucketId = 0; bucketId < buckets.bucketCount(); bucketId++) {
+        const auto tileIdFabric = sip.getAttributeArrayRd<int64_t>(buckets, bucketId, FabricTokens::_cesium_tileId);
+        const auto primPaths = sip.getPathArray(buckets, bucketId);
+
+        for (size_t i = 0; i < tileIdFabric.size(); i++) {
+            if (tileIdFabric[i] == tileId) {
+                primsToDelete.push_back(carb::flatcache::PathC(primPaths[i]).path);
+            }
+        }
+    }
+
+    for (const auto& primToDelete : primsToDelete) {
+        sip.destroyPrim(carb::flatcache::Path(carb::flatcache::PathC{primToDelete}));
+    }
+
+    deletePrimsFabric(primsToDelete);
+}
+
+void setTileVisibility(int64_t tileId, bool visible) {
+    auto sip = UsdUtil::getFabricStageInProgress();
+
+    const auto buckets =
+        sip.findPrims({carb::flatcache::AttrNameAndType(FabricTypes::_cesium_tileId, FabricTokens::_cesium_tileId)});
+
+    for (size_t bucketId = 0; bucketId < buckets.bucketCount(); bucketId++) {
+        const auto tileIdFabric = sip.getAttributeArrayRd<int64_t>(buckets, bucketId, FabricTokens::_cesium_tileId);
+        const auto primPaths = sip.getPathArray(buckets, bucketId);
+
+        for (size_t i = 0; i < tileIdFabric.size(); i++) {
+            if (tileIdFabric[i] == tileId) {
+                auto worldVisibilityFabric = sip.getAttributeWr<bool>(primPaths[i], FabricTokens::_worldVisibility);
+                *worldVisibilityFabric = visible;
+            }
+        }
+    }
 }
 
 void setTilesetTransform(int64_t tilesetId, const glm::dmat4& ecefToUsdTransform) {

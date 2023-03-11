@@ -14,8 +14,7 @@ namespace cesium::omniverse {
 namespace {
 struct TileLoadThreadResult {
     glm::dmat4 tileTransform;
-    std::vector<pxr::SdfPath> geomPaths;
-    std::vector<pxr::SdfPath> allPrimPaths;
+    int64_t tileId;
     std::vector<std::string> textureAssetNames;
 };
 } // namespace
@@ -50,9 +49,10 @@ FabricPrepareRenderResources::prepareInLoadThread(
             const auto ecefToUsdTransform = UsdUtil::computeEcefToUsdTransformForPrim(
                 Context::instance().getGeoreferenceOrigin(), _tileset.getPath());
 
+            const auto tileId = Context::instance().getNextTileId();
             const auto addTileResults = FabricStageUtil::addTile(
                 _tilesetId,
-                Context::instance().getNextTileId(),
+                tileId,
                 ecefToUsdTransform,
                 transform,
                 *pModel,
@@ -62,8 +62,7 @@ FabricPrepareRenderResources::prepareInLoadThread(
                 std::move(tileLoadResult),
                 new TileLoadThreadResult{
                     transform,
-                    std::move(addTileResults.geomPaths),
-                    std::move(addTileResults.allPrimPaths),
+                    tileId,
                     std::move(addTileResults.textureAssetNames),
                 }});
         }
@@ -73,8 +72,7 @@ FabricPrepareRenderResources::prepareInLoadThread(
             std::move(tileLoadResult),
             new TileLoadThreadResult{
                 transform,
-                {},
-                {},
+                0,
                 {},
             }});
     });
@@ -88,8 +86,7 @@ void* FabricPrepareRenderResources::prepareInMainThread(
             reinterpret_cast<TileLoadThreadResult*>(pLoadThreadResult)};
         return new TileRenderResources{
             pTileLoadThreadResult->tileTransform,
-            std::move(pTileLoadThreadResult->geomPaths),
-            std::move(pTileLoadThreadResult->allPrimPaths),
+            pTileLoadThreadResult->tileId,
             std::move(pTileLoadThreadResult->textureAssetNames),
         };
     }
@@ -110,7 +107,7 @@ void FabricPrepareRenderResources::free(
         const auto pTileRenderResources = reinterpret_cast<TileRenderResources*>(pMainThreadResult);
 
         if (UsdUtil::hasStage()) {
-            FabricStageUtil::removeTile(pTileRenderResources->allPrimPaths, pTileRenderResources->textureAssetNames);
+            FabricStageUtil::removeTile(pTileRenderResources->tileId, pTileRenderResources->textureAssetNames);
         }
 
         delete pTileRenderResources;
@@ -156,13 +153,6 @@ void FabricPrepareRenderResources::attachRasterInMainThread(
         return;
     }
 
-    if (pTileRenderResources->geomPaths.size() > 0) {
-        // Already created the tile with lower-res imagery.
-        // Due to Kit 104.2 material limitations, we can't update the texture or assign a new material to the prim.
-        // But we can delete the existing prim and create a new prim.
-        FabricStageUtil::removeTile(pTileRenderResources->allPrimPaths, pTileRenderResources->textureAssetNames);
-    }
-
     const auto ecefToUsdTransform =
         UsdUtil::computeEcefToUsdTransformForPrim(Context::instance().getGeoreferenceOrigin(), _tileset.getPath());
 
@@ -180,8 +170,7 @@ void FabricPrepareRenderResources::attachRasterInMainThread(
         scale,
         static_cast<uint64_t>(overlayTextureCoordinateID));
 
-    pTileRenderResources->geomPaths = addTileResults.geomPaths;
-    pTileRenderResources->allPrimPaths = addTileResults.allPrimPaths;
+    pTileRenderResources->tileId = addTileResults.tileId;
     pTileRenderResources->textureAssetNames = addTileResults.textureAssetNames;
 }
 

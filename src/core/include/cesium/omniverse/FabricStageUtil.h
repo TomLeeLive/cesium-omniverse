@@ -17,8 +17,7 @@ struct Rectangle;
 namespace cesium::omniverse::FabricStageUtil {
 
 struct AddTileResults {
-    std::vector<pxr::SdfPath> geomPaths;
-    std::vector<pxr::SdfPath> allPrimPaths;
+    int64_t tileId;
     std::vector<std::string> textureAssetNames;
 };
 
@@ -44,8 +43,8 @@ AddTileResults addTileWithImagery(
     const glm::dvec2& imageryUvScale,
     uint64_t imageryUvSetIndex);
 
-void removeTile(const std::vector<pxr::SdfPath>& allPrimPaths, const std::vector<std::string>& textureAssetNames);
-void setTileVisibility(const std::vector<pxr::SdfPath>& geomPaths, bool visible);
+void removeTile(int64_t tileId, const std::vector<std::string>& textureAssetNames);
+void setTileVisibility(int64_t tileId, bool visible);
 void removeTileset(int64_t tilesetId);
 void setTilesetTransform(int64_t tilesetId, const glm::dmat4& ecefToUsdTransform);
 }; // namespace cesium::omniverse::FabricStageUtil
