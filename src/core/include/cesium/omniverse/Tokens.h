@@ -2,6 +2,7 @@
 
 #include <carb/flatcache/StageWithHistory.h>
 #include <pxr/base/tf/token.h>
+#include <usdrt/scenegraph/base/tf/token.h>
 
 // clang-format off
 
@@ -139,6 +140,74 @@ extern const pxr::TfToken& _worldOrientation;
 extern const pxr::TfToken& _worldPosition;
 extern const pxr::TfToken& _worldScale;
 extern const pxr::TfToken& _worldVisibility;
+}
+
+namespace cesium::omniverse::UsdrtTokens {
+extern const usdrt::TfToken a;
+extern const usdrt::TfToken add;
+extern const usdrt::TfToken add_float2_float2;
+extern const usdrt::TfToken albedo_add;
+extern const usdrt::TfToken b;
+extern const usdrt::TfToken constant;
+extern const usdrt::TfToken coord;
+extern const usdrt::TfToken diffuse_color_constant;
+extern const usdrt::TfToken diffuse_texture;
+extern const usdrt::TfToken displacement;
+extern const usdrt::TfToken doubleSided;
+extern const usdrt::TfToken faceVertexCounts;
+extern const usdrt::TfToken faceVertexIndices;
+extern const usdrt::TfToken info_id;
+extern const usdrt::TfToken info_sourceAsset_subIdentifier;
+extern const usdrt::TfToken lookup_color;
+extern const usdrt::TfToken Material;
+extern const usdrt::TfToken materialId;
+extern const usdrt::TfToken MaterialNetwork;
+extern const usdrt::TfToken Mesh;
+extern const usdrt::TfToken metallic_constant;
+extern const usdrt::TfToken multiply;
+extern const usdrt::TfToken multiply_float2_float2;
+extern const usdrt::TfToken none;
+extern const usdrt::TfToken nvidia_support_definitions_mdl;
+extern const usdrt::TfToken OmniPBR;
+extern const usdrt::TfToken OmniPBR_mdl;
+extern const usdrt::TfToken out;
+extern const usdrt::TfToken points;
+extern const usdrt::TfToken primvarInterpolations;
+extern const usdrt::TfToken primvars;
+extern const usdrt::TfToken primvars_displayColor;
+extern const usdrt::TfToken primvars_normals;
+extern const usdrt::TfToken primvars_st;
+extern const usdrt::TfToken reflection_roughness_constant;
+extern const usdrt::TfToken Shader;
+extern const usdrt::TfToken specular_level;
+extern const usdrt::TfToken subdivisionScheme;
+extern const usdrt::TfToken surface;
+extern const usdrt::TfToken tex;
+extern const usdrt::TfToken texture_coordinate_2d;
+extern const usdrt::TfToken vertex;
+extern const usdrt::TfToken visibility;
+extern const usdrt::TfToken wrap_u;
+extern const usdrt::TfToken wrap_v;
+extern const usdrt::TfToken _auto;
+extern const usdrt::TfToken _cesium_localToEcefTransform;
+extern const usdrt::TfToken _cesium_tileId;
+extern const usdrt::TfToken _cesium_tilesetId;
+extern const usdrt::TfToken _deletedPrims;
+extern const usdrt::TfToken _localExtent;
+extern const usdrt::TfToken _localMatrix;
+extern const usdrt::TfToken _nodePaths;
+extern const usdrt::TfToken _paramColorSpace;
+extern const usdrt::TfToken _parameters;
+extern const usdrt::TfToken _relationships_inputId;
+extern const usdrt::TfToken _relationships_inputName;
+extern const usdrt::TfToken _relationships_outputId;
+extern const usdrt::TfToken _relationships_outputName;
+extern const usdrt::TfToken _terminals;
+extern const usdrt::TfToken _worldExtent;
+extern const usdrt::TfToken _worldOrientation;
+extern const usdrt::TfToken _worldPosition;
+extern const usdrt::TfToken _worldScale;
+extern const usdrt::TfToken _worldVisibility;
 }
 
 namespace cesium::omniverse::FabricTypes {

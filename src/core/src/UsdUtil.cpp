@@ -47,8 +47,13 @@ glm::dmat4 getUnitConversionTransform() {
 } // namespace
 
 pxr::UsdStageRefPtr getUsdStage() {
-    return Context::instance().getStage();
+    return Context::instance().getUsdStage();
 }
+
+usdrt::UsdStageRefPtr getUsdrtStage() {
+    return Context::instance().getUsdrtStage();
+}
+
 
 carb::flatcache::StageInProgress getFabricStageInProgress() {
     return Context::instance().getFabricStageInProgress();

@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 #include <pxr/usd/usd/common.h>
 #include <spdlog/logger.h>
+#include <usdrt/scenegraph/usd/usd/stage.h>
 
 #include <atomic>
 #include <filesystem>
@@ -71,7 +72,8 @@ class Context {
     void onUpdateFrame(const glm::dmat4& viewMatrix, const glm::dmat4& projMatrix, double width, double height);
     void onUpdateUi();
 
-    pxr::UsdStageRefPtr getStage() const;
+    pxr::UsdStageRefPtr getUsdStage() const;
+    usdrt::UsdStageRefPtr getUsdrtStage() const;
     carb::flatcache::StageInProgress getFabricStageInProgress() const;
     long getStageId() const;
 
@@ -135,7 +137,8 @@ class Context {
     std::optional<TokenTroubleshootingDetails> _assetTokenTroubleshootingDetails = std::nullopt;
     std::optional<TokenTroubleshootingDetails> _defaultTokenTroubleshootingDetails = std::nullopt;
 
-    pxr::UsdStageRefPtr _stage;
+    pxr::UsdStageRefPtr _usdStage;
+    usdrt::UsdStageRefPtr _usdrtStage;
     std::optional<carb::flatcache::StageInProgress> _fabricStageInProgress;
     long _stageId{0};
     UsdNotificationHandler _usdNotificationHandler;

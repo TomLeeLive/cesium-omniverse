@@ -323,8 +323,12 @@ void Context::onUpdateUi() {
     _session->tick();
 }
 
-pxr::UsdStageRefPtr Context::getStage() const {
-    return _stage;
+pxr::UsdStageRefPtr Context::getUsdStage() const {
+    return _usdStage;
+}
+
+usdrt::UsdStageRefPtr Context::getUsdrtStage() const {
+    return _usdrtStage;
 }
 
 carb::flatcache::StageInProgress Context::getFabricStageInProgress() const {
@@ -347,7 +351,8 @@ void Context::setStageId(long stageId) {
 
     if (oldStage > 0) {
         // Remove references to the old stage
-        _stage.Reset();
+        _usdStage.Reset();
+        _usdrtStage.reset();
         _fabricStageInProgress.reset();
         _stageId = 0;
 
@@ -357,13 +362,17 @@ void Context::setStageId(long stageId) {
 
     if (newStage > 0) {
         // Set the USD stage
-        _stage = pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
+        _usdStage = pxr::UsdUtilsStageCache::Get().Find(pxr::UsdStageCache::Id::FromLongInt(stageId));
 
         // Set the Fabric stage
         const auto iStageInProgress = carb::getCachedInterface<carb::flatcache::IStageInProgress>();
         const auto stageInProgressId =
             iStageInProgress->get(carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)});
         _fabricStageInProgress = carb::flatcache::StageInProgress(stageInProgressId);
+
+        // Set the USDRT stage
+        const auto usdStageId = carb::flatcache::UsdStageId{static_cast<uint64_t>(stageId)};
+        _usdrtStage = usdrt::UsdStage::Attach(usdStageId, stageInProgressId);
 
         // Repopulate the asset registry
         reloadStage();
