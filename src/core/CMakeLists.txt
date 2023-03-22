@@ -55,7 +55,8 @@ setup_lib(
         cpr::cpr
         stb::stb
         ZLIB::ZLIB
-        usdrt
+        carb.flatcache.plugin
+        usdrt.scenegraph.plugin
         ar
         arch
         gf
@@ -81,7 +82,7 @@ setup_lib(
         tbb
         carb
         cudart
-        omni_kit_app
+        omni.kit.app.plugin
         pybind11
         python37
     DEPENDENCIES

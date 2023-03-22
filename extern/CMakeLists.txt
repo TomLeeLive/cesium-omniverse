@@ -205,7 +205,7 @@ add_prebuilt_project(
     DEBUG_LIBRARIES
         carb.flatcache.plugin
     TARGET_NAMES
-        usdrt
+        carb.flatcache.plugin
 )
 # cmake-format: on
 
@@ -243,7 +243,7 @@ add_prebuilt_project(
     DEBUG_LIBRARIES
         omni.kit.app.plugin
     TARGET_NAMES
-        omni_kit_app
+        omni.kit.app.plugin
 )
 # cmake-format: on
 
@@ -303,3 +303,22 @@ else()
     )
     # cmake-format: on
 endif()
+
+# cmake-format: off
+add_prebuilt_project(
+    RELEASE_INCLUDE_DIR
+        "${USDRT_ROOT}/include"
+    DEBUG_INCLUDE_DIR
+        "${USDRT_ROOT}/include"
+    RELEASE_LIBRARY_DIR
+        "${USDRT_ROOT}/_build/${NVIDIA_PLATFORM_NAME}/${NVIDIA_RELEASE_FOLDER_NAME}"
+    DEBUG_LIBRARY_DIR
+        "${USDRT_ROOT}/_build/${NVIDIA_PLATFORM_NAME}/${NVIDIA_DEBUG_FOLDER_NAME}"
+    RELEASE_LIBRARIES
+        usdrt.scenegraph.plugin
+    DEBUG_LIBRARIES
+        usdrt.scenegraph.plugin
+    TARGET_NAMES
+        usdrt.scenegraph.plugin
+)
+# cmake-format: on

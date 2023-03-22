@@ -21,6 +21,7 @@
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/usd/sdf/assetPath.h>
 #include <spdlog/fmt/fmt.h>
+#include <usdrt/scenegraph/usd/usd/stage.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
@@ -610,7 +611,7 @@ std::vector<pxr::SdfPath> addMaterialImagery(
         sip.setArrayAttributeSize(multiplyPathFabric, FabricTokens::_parameters, 1);
 
         // clang-format off
-        auto bFabric = sip.getAttributeWr<pxr::GfVec2f>(multiplyPathFabric, FabricTokens::b);
+        auto bFabric = sip.getAttributeWr<usdrt::GfVec2f>(multiplyPathFabric, FabricTokens::b);
         auto infoIdFabric = sip.getAttributeWr<carb::flatcache::Token>(multiplyPathFabric, FabricTokens::info_id);
         auto infoSourceAssetSubIdentifierFabric = sip.getAttributeWr<carb::flatcache::Token>(multiplyPathFabric, FabricTokens::info_sourceAsset_subIdentifier);
         auto parametersFabric = sip.getArrayAttributeWr<carb::flatcache::Token>(multiplyPathFabric, FabricTokens::_parameters);
@@ -618,7 +619,7 @@ std::vector<pxr::SdfPath> addMaterialImagery(
         auto tileIdFabric = sip.getAttributeWr<int64_t>(multiplyPathFabric, FabricTokens::_cesium_tileId);
         // clang-format on
 
-        *bFabric = pxr::GfVec2f(static_cast<float>(uvScale.x), static_cast<float>(uvScale.y));
+        *bFabric = usdrt::GfVec2f(static_cast<float>(uvScale.x), static_cast<float>(uvScale.y));
         *infoIdFabric = FabricTokens::nvidia_support_definitions_mdl;
         *infoSourceAssetSubIdentifierFabric = FabricTokens::multiply_float2_float2;
         parametersFabric[0] = FabricTokens::b;
