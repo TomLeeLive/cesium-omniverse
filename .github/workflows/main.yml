@@ -117,7 +117,7 @@ jobs:
         run: cmake --build build --target generate-documentation --config ${{ matrix.config.build-type }}
 
       - name: Install (Default/Kit)
-        run: cmake --install build --config ${{ matrix.config.build-type }} --prefix install-default
+        run: cmake --build build --target install --config ${{ matrix.config.build-type }}
 
-      - name: Install (Library)
-        run: cmake --install build --config ${{ matrix.config.build-type }} --prefix install-library --component library
+      - name: Package
+        run: cmake --build build --target package --config ${{ matrix.config.build-type }}
