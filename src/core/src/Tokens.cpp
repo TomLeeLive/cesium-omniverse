@@ -74,6 +74,36 @@ TF_DEFINE_PRIVATE_TOKENS(
     ((primvars_normals, "primvars:normals"))
     ((primvars_st, "primvars:st"))
     ((_auto, "auto"))
+    (extent)
+    (UsdGeomMesh)
+    (UsdGeomImageable)
+    (UsdGeomXformable)
+    (UsdTyped)
+    (UsdSchemaBase)
+    (UsdGeomPointBased)
+    (UsdGeomGprim)
+    (UsdGeomBoundable)
+    (MeshSubdivision)
+    (purpose)
+    (geometry)
+    (refinementLevel)
+    (orientation)
+    (rightHanded)
+    ((TfType_Root, "TfType::_Root"))
+    (_memUsed)
+    (faceVaryingLinearInterpolation)
+    (interpolateBoundary)
+    (triangleSubdivisionRule)
+    (cornerIndices)
+    (creaseIndices)
+    (creaseLengths)
+    (subsetIndicesCount)
+    (subsetIndices)
+    (creaseSharpnesses)
+    (cornerSharpnesses)
+    (subsetId)
+    (subsetMaterialId)
+    (timeVaryingAttributes)
 );
 }
 
@@ -143,6 +173,36 @@ const carb::flatcache::TokenC _worldOrientation = carb::flatcache::asInt(pxr::Us
 const carb::flatcache::TokenC _worldPosition = carb::flatcache::asInt(pxr::UsdTokens->_worldPosition);
 const carb::flatcache::TokenC _worldScale = carb::flatcache::asInt(pxr::UsdTokens->_worldScale);
 const carb::flatcache::TokenC _worldVisibility = carb::flatcache::asInt(pxr::UsdTokens->_worldVisibility);
+const carb::flatcache::TokenC extent = carb::flatcache::asInt(pxr::UsdTokens->extent);
+const carb::flatcache::TokenC UsdGeomMesh = carb::flatcache::asInt(pxr::UsdTokens->UsdGeomMesh);
+const carb::flatcache::TokenC UsdGeomImageable = carb::flatcache::asInt(pxr::UsdTokens->UsdGeomImageable);
+const carb::flatcache::TokenC UsdGeomXformable = carb::flatcache::asInt(pxr::UsdTokens->UsdGeomXformable);
+const carb::flatcache::TokenC UsdTyped = carb::flatcache::asInt(pxr::UsdTokens->UsdTyped);
+const carb::flatcache::TokenC UsdSchemaBase = carb::flatcache::asInt(pxr::UsdTokens->UsdSchemaBase);
+const carb::flatcache::TokenC UsdGeomPointBased = carb::flatcache::asInt(pxr::UsdTokens->UsdGeomPointBased);
+const carb::flatcache::TokenC UsdGeomGprim = carb::flatcache::asInt(pxr::UsdTokens->UsdGeomGprim);
+const carb::flatcache::TokenC UsdGeomBoundable = carb::flatcache::asInt(pxr::UsdTokens->UsdGeomBoundable);
+const carb::flatcache::TokenC MeshSubdivision = carb::flatcache::asInt(pxr::UsdTokens->MeshSubdivision);
+const carb::flatcache::TokenC purpose = carb::flatcache::asInt(pxr::UsdTokens->purpose);
+const carb::flatcache::TokenC geometry = carb::flatcache::asInt(pxr::UsdTokens->geometry);
+const carb::flatcache::TokenC refinementLevel = carb::flatcache::asInt(pxr::UsdTokens->refinementLevel);
+const carb::flatcache::TokenC orientation = carb::flatcache::asInt(pxr::UsdTokens->orientation);
+const carb::flatcache::TokenC rightHanded = carb::flatcache::asInt(pxr::UsdTokens->rightHanded);
+const carb::flatcache::TokenC TfType_Root = carb::flatcache::asInt(pxr::UsdTokens->TfType_Root);
+const carb::flatcache::TokenC _memUsed = carb::flatcache::asInt(pxr::UsdTokens->_memUsed);
+const carb::flatcache::TokenC faceVaryingLinearInterpolation = carb::flatcache::asInt(pxr::UsdTokens->faceVaryingLinearInterpolation);
+const carb::flatcache::TokenC interpolateBoundary = carb::flatcache::asInt(pxr::UsdTokens->interpolateBoundary);
+const carb::flatcache::TokenC triangleSubdivisionRule = carb::flatcache::asInt(pxr::UsdTokens->triangleSubdivisionRule);
+const carb::flatcache::TokenC cornerIndices = carb::flatcache::asInt(pxr::UsdTokens->cornerIndices);
+const carb::flatcache::TokenC creaseIndices = carb::flatcache::asInt(pxr::UsdTokens->creaseIndices);
+const carb::flatcache::TokenC creaseLengths = carb::flatcache::asInt(pxr::UsdTokens->creaseLengths);
+const carb::flatcache::TokenC subsetIndicesCount = carb::flatcache::asInt(pxr::UsdTokens->subsetIndicesCount);
+const carb::flatcache::TokenC subsetIndices = carb::flatcache::asInt(pxr::UsdTokens->subsetIndices);
+const carb::flatcache::TokenC creaseSharpnesses = carb::flatcache::asInt(pxr::UsdTokens->creaseSharpnesses);
+const carb::flatcache::TokenC cornerSharpnesses = carb::flatcache::asInt(pxr::UsdTokens->cornerSharpnesses);
+const carb::flatcache::TokenC subsetId = carb::flatcache::asInt(pxr::UsdTokens->subsetId);
+const carb::flatcache::TokenC subsetMaterialId = carb::flatcache::asInt(pxr::UsdTokens->subsetMaterialId);
+const carb::flatcache::TokenC timeVaryingAttributes = carb::flatcache::asInt(pxr::UsdTokens->timeVaryingAttributes);
 }
 
 namespace cesium::omniverse::UsdTokens {
@@ -211,5 +271,35 @@ const pxr::TfToken& _worldOrientation = pxr::UsdTokens->_worldOrientation;
 const pxr::TfToken& _worldPosition = pxr::UsdTokens->_worldPosition;
 const pxr::TfToken& _worldScale = pxr::UsdTokens->_worldScale;
 const pxr::TfToken& _worldVisibility = pxr::UsdTokens->_worldVisibility;
+const pxr::TfToken& extent = pxr::UsdTokens->extent;
+const pxr::TfToken& UsdGeomMesh = pxr::UsdTokens->UsdGeomMesh;
+const pxr::TfToken& UsdGeomImageable = pxr::UsdTokens->UsdGeomImageable;
+const pxr::TfToken& UsdGeomXformable = pxr::UsdTokens->UsdGeomXformable;
+const pxr::TfToken& UsdTyped = pxr::UsdTokens->UsdTyped;
+const pxr::TfToken& UsdSchemaBase = pxr::UsdTokens->UsdSchemaBase;
+const pxr::TfToken& UsdGeomPointBased = pxr::UsdTokens->UsdGeomPointBased;
+const pxr::TfToken& UsdGeomGprim = pxr::UsdTokens->UsdGeomGprim;
+const pxr::TfToken& UsdGeomBoundable = pxr::UsdTokens->UsdGeomBoundable;
+const pxr::TfToken& MeshSubdivision = pxr::UsdTokens->MeshSubdivision;
+const pxr::TfToken& purpose = pxr::UsdTokens->purpose;
+const pxr::TfToken& geometry = pxr::UsdTokens->geometry;
+const pxr::TfToken& refinementLevel = pxr::UsdTokens->refinementLevel;
+const pxr::TfToken& orientation = pxr::UsdTokens->orientation;
+const pxr::TfToken& rightHanded = pxr::UsdTokens->rightHanded;
+const pxr::TfToken& TfType_Root = pxr::UsdTokens->TfType_Root;
+const pxr::TfToken& _memUsed = pxr::UsdTokens->_memUsed;
+const pxr::TfToken& faceVaryingLinearInterpolation = pxr::UsdTokens->faceVaryingLinearInterpolation;
+const pxr::TfToken& interpolateBoundary = pxr::UsdTokens->interpolateBoundary;
+const pxr::TfToken& triangleSubdivisionRule = pxr::UsdTokens->triangleSubdivisionRule;
+const pxr::TfToken& cornerIndices = pxr::UsdTokens->cornerIndices;
+const pxr::TfToken& creaseIndices = pxr::UsdTokens->creaseIndices;
+const pxr::TfToken& creaseLengths = pxr::UsdTokens->creaseLengths;
+const pxr::TfToken& subsetIndicesCount = pxr::UsdTokens->subsetIndicesCount;
+const pxr::TfToken& subsetIndices = pxr::UsdTokens->subsetIndices;
+const pxr::TfToken& creaseSharpnesses = pxr::UsdTokens->creaseSharpnesses;
+const pxr::TfToken& cornerSharpnesses = pxr::UsdTokens->cornerSharpnesses;
+const pxr::TfToken& subsetId = pxr::UsdTokens->subsetId;
+const pxr::TfToken& subsetMaterialId = pxr::UsdTokens->subsetMaterialId;
+const pxr::TfToken& timeVaryingAttributes = pxr::UsdTokens->timeVaryingAttributes;
 }
 // clang-format on

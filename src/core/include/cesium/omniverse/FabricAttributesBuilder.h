@@ -10,7 +10,7 @@ class FabricAttributesBuilder {
     void createAttributes(const carb::flatcache::Path& path);
 
   private:
-    static const uint64_t MAX_ATTRIBUTES = 30;
+    static const uint64_t MAX_ATTRIBUTES = 50;
     uint64_t _size = 0;
     std::array<carb::flatcache::AttrNameAndType, MAX_ATTRIBUTES> _attributes;
 };

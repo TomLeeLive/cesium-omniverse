@@ -782,13 +782,11 @@ void addPrimitive(
     attributes.addAttribute(FabricTypes::faceVertexCounts, FabricTokens::faceVertexCounts);
     attributes.addAttribute(FabricTypes::faceVertexIndices, FabricTokens::faceVertexIndices);
     attributes.addAttribute(FabricTypes::points, FabricTokens::points);
-    attributes.addAttribute(FabricTypes::_localExtent, FabricTokens::_localExtent);
     attributes.addAttribute(FabricTypes::_worldExtent, FabricTokens::_worldExtent);
     attributes.addAttribute(FabricTypes::_worldVisibility, FabricTokens::_worldVisibility);
     attributes.addAttribute(FabricTypes::primvars, FabricTokens::primvars);
     attributes.addAttribute(FabricTypes::primvarInterpolations, FabricTokens::primvarInterpolations);
     attributes.addAttribute(FabricTypes::primvars_displayColor, FabricTokens::primvars_displayColor);
-    attributes.addAttribute(FabricTypes::Mesh, FabricTokens::Mesh);
     attributes.addAttribute(FabricTypes::_cesium_tilesetId, FabricTokens::_cesium_tilesetId);
     attributes.addAttribute(FabricTypes::_cesium_tileId, FabricTokens::_cesium_tileId);
     attributes.addAttribute(FabricTypes::_cesium_localToEcefTransform, FabricTokens::_cesium_localToEcefTransform);
@@ -797,6 +795,36 @@ void addPrimitive(
     attributes.addAttribute(FabricTypes::_worldScale, FabricTokens::_worldScale);
     attributes.addAttribute(FabricTypes::doubleSided, FabricTokens::doubleSided);
     attributes.addAttribute(FabricTypes::subdivisionScheme, FabricTokens::subdivisionScheme);
+
+    // attributes.addAttribute(FabricTypes::UsdGeomMesh, FabricTokens::UsdGeomMesh);
+    // attributes.addAttribute(FabricTypes::UsdGeomImageable, FabricTokens::UsdGeomImageable);
+    // attributes.addAttribute(FabricTypes::UsdGeomXformable, FabricTokens::UsdGeomXformable);
+    // attributes.addAttribute(FabricTypes::UsdTyped, FabricTokens::UsdTyped);
+    // attributes.addAttribute(FabricTypes::UsdSchemaBase, FabricTokens::UsdSchemaBase);
+    // attributes.addAttribute(FabricTypes::UsdGeomPointBased, FabricTokens::UsdGeomPointBased);
+    // attributes.addAttribute(FabricTypes::UsdGeomGprim, FabricTokens::UsdGeomGprim);
+    // attributes.addAttribute(FabricTypes::UsdGeomBoundable, FabricTokens::UsdGeomBoundable);
+    // attributes.addAttribute(FabricTypes::MeshSubdivision, FabricTokens::UsdGeomBoundable);
+    // attributes.addAttribute(FabricTypes::TfType_Root, FabricTokens::TfType_Root);
+    attributes.addAttribute(FabricTypes::extent, FabricTokens::extent);
+    attributes.addAttribute(FabricTypes::purpose, FabricTokens::purpose);
+    attributes.addAttribute(FabricTypes::refinementLevel, FabricTokens::refinementLevel);
+    attributes.addAttribute(FabricTypes::orientation, FabricTokens::orientation);
+
+    attributes.addAttribute(FabricTypes::_memUsed, FabricTokens::_memUsed);
+    // attributes.addAttribute(FabricTypes::faceVaryingLinearInterpolation, FabricTokens::faceVaryingLinearInterpolation);
+    // attributes.addAttribute(FabricTypes::interpolateBoundary, FabricTokens::interpolateBoundary);
+    // attributes.addAttribute(FabricTypes::triangleSubdivisionRule, FabricTokens::triangleSubdivisionRule);
+    // attributes.addAttribute(FabricTypes::cornerIndices, FabricTokens::cornerIndices);
+    // attributes.addAttribute(FabricTypes::creaseIndices, FabricTokens::creaseIndices);
+    // attributes.addAttribute(FabricTypes::creaseLengths, FabricTokens::creaseLengths);
+    // attributes.addAttribute(FabricTypes::subsetIndicesCount, FabricTokens::subsetIndicesCount);
+    // attributes.addAttribute(FabricTypes::subsetIndices, FabricTokens::subsetIndices);
+    // attributes.addAttribute(FabricTypes::creaseSharpnesses, FabricTokens::creaseSharpnesses);
+    // attributes.addAttribute(FabricTypes::cornerSharpnesses, FabricTokens::cornerSharpnesses);
+    attributes.addAttribute(FabricTypes::subsetId, FabricTokens::subsetId);
+    attributes.addAttribute(FabricTypes::subsetMaterialId, FabricTokens::subsetMaterialId);
+    attributes.addAttribute(FabricTypes::timeVaryingAttributes, FabricTokens::timeVaryingAttributes);
 
     if (hasMaterial) {
         attributes.addAttribute(FabricTypes::materialId, FabricTokens::materialId);
@@ -837,7 +865,6 @@ void addPrimitive(
     auto faceVertexCountsFabric = sip.getArrayAttributeWr<int>(geomPathFabric, FabricTokens::faceVertexCounts);
     auto faceVertexIndicesFabric = sip.getArrayAttributeWr<int>(geomPathFabric, FabricTokens::faceVertexIndices);
     auto pointsFabric = sip.getArrayAttributeWr<pxr::GfVec3f>(geomPathFabric, FabricTokens::points);
-    auto localExtentFabric = sip.getAttributeWr<pxr::GfRange3d>(geomPathFabric, FabricTokens::_localExtent);
     auto worldExtentFabric = sip.getAttributeWr<pxr::GfRange3d>(geomPathFabric, FabricTokens::_worldExtent);
     auto worldVisibilityFabric = sip.getAttributeWr<bool>(geomPathFabric, FabricTokens::_worldVisibility);
     auto primvarsFabric = sip.getArrayAttributeWr<carb::flatcache::Token>(geomPathFabric, FabricTokens::primvars);
@@ -851,6 +878,12 @@ void addPrimitive(
     auto worldScaleFabric = sip.getAttributeWr<pxr::GfVec3f>(geomPathFabric, FabricTokens::_worldScale);
     auto doubleSidedFabric = sip.getAttributeWr<bool>(geomPathFabric, FabricTokens::doubleSided);
     auto subdivisionSchemeFabric = sip.getAttributeWr<carb::flatcache::Token>(geomPathFabric, FabricTokens::subdivisionScheme);
+
+    auto extentFabric = sip.getAttributeWr<pxr::GfRange3d>(geomPathFabric, FabricTokens::extent);
+    auto purposeFabric = sip.getAttributeWr<carb::flatcache::Token>(geomPathFabric, FabricTokens::purpose);
+    auto refinementLevelFabric = sip.getAttributeWr<int>(geomPathFabric, FabricTokens::refinementLevel);
+    auto orientationFabric = sip.getAttributeWr<carb::flatcache::Token>(geomPathFabric, FabricTokens::orientation);
+    auto memUsedFabric = sip.getAttributeWr<uint64_t>(geomPathFabric, FabricTokens::_memUsed);
     // clang-format on
 
     std::copy(faceVertexCounts.begin(), faceVertexCounts.end(), faceVertexCountsFabric.begin());
@@ -868,8 +901,13 @@ void addPrimitive(
     *localToEcefTransformFabric = UsdUtil::glmToUsdMatrix(localToEcefTransform);
     *doubleSidedFabric = doubleSided;
     *subdivisionSchemeFabric = FabricTokens::none;
-    *localExtentFabric = localExtent.value();
     *worldExtentFabric = worldExtent;
+
+    *extentFabric = localExtent.value();
+    *purposeFabric = FabricTokens::geometry;
+    *refinementLevelFabric = -1;
+    *orientationFabric = FabricTokens::rightHanded;
+    *memUsedFabric = 100;
 
     if (hasMaterial) {
         auto materialIdFabric = sip.getAttributeWr<uint64_t>(geomPathFabric, FabricTokens::materialId);

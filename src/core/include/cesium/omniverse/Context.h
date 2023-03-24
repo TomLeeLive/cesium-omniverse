@@ -149,7 +149,7 @@ class Context {
     std::filesystem::path _memCesiumPath;
     std::filesystem::path _certificatePath;
 
-    bool _debugDisableMaterials{false};
+    bool _debugDisableMaterials{true};
 };
 
 } // namespace cesium::omniverse
