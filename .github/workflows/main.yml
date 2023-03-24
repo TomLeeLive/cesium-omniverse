@@ -121,3 +121,39 @@ jobs:
 
       - name: Package
         run: cmake --build build --target package --config ${{ matrix.config.build-type }}
+
+      - name: Capture Git info (not Windows)
+        id: vars1
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "usdate=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+          echo "localPath=build" >> $GITHUB_ENV
+          echo "binaryName=Cesium-ion-3D-Tiling-Pipeline-Experimental-Linux-0.1.0.zip" >> $GITHUB_ENV
+
+      - name: Capture Git info (Windows)
+        id: vars2
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "branch=${{ github.ref_name }}" >> $env:GITHUB_ENV
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_ENV
+          echo "usdate=$(date +'%Y-%m-%d')" >> $env:GITHUB_ENV
+          echo "localPath=build" >> $env:GITHUB_ENV
+          echo "binaryName=Cesium-ion-3D-Tiling-Pipeline-Experimental-Windows-0.1.0.zip " >> $env:GITHUB_ENV
+
+      - name: Capture AWS secrets
+        uses: aws-actions/configure-aws-credentials@v2
+        env:
+          AWS_S3_USERNAME: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_S3_PASSWORD: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        with:
+          aws-access-key-id: ${{ env.AWS_S3_USERNAME }}
+          aws-secret-access-key: ${{ env.AWS_S3_PASSWORD }}
+          aws-region: us-east-1
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp ${{ env.localPath }}/${{ env.binaryName }} s3://cesium-travis-builds/cesium-omniverse/${{ env.branch }}/${{ env.usdate }}/${{ env.sha_short }}/${{ matrix.config.build-code }}/
