@@ -534,6 +534,7 @@ void addFabricPrim(
     attributes.addAttribute(FabricTypes::_worldScale, FabricTokens::_worldScale);
     attributes.addAttribute(FabricTypes::doubleSided, FabricTokens::doubleSided);
     attributes.addAttribute(FabricTypes::subdivisionScheme, FabricTokens::subdivisionScheme);
+    attributes.addAttribute(FabricTypes::materialId, FabricTokens::materialId);
 
     attributes.createAttributes(geomPathFabric);
 
@@ -563,6 +564,7 @@ void addFabricPrim(
     auto worldScaleFabric = sip.getAttributeWr<pxr::GfVec3f>(geomPathFabric, FabricTokens::_worldScale);
     auto doubleSidedFabric = sip.getAttributeWr<bool>(geomPathFabric, FabricTokens::doubleSided);
     auto subdivisionSchemeFabric = sip.getAttributeWr<carb::flatcache::Token>(geomPathFabric, FabricTokens::subdivisionScheme);
+    auto materialIdFabric = sip.getAttributeWr<uint64_t>(geomPathFabric, FabricTokens::materialId);
     // clang-format on
 
     std::copy(faceVertexCounts.begin(), faceVertexCounts.end(), faceVertexCountsFabric.begin());
@@ -579,6 +581,9 @@ void addFabricPrim(
     *subdivisionSchemeFabric = FabricTokens::none;
     *localExtentFabric = localExtent;
     *worldExtentFabric = worldExtent;
+
+    const carb::flatcache::Path yellowMaterialPath("/World/Looks/OmniPBR_Yellow");
+    *materialIdFabric = carb::flatcache::PathC(yellowMaterialPath).path;
 
     displayColorFabric[0] = pxr::GfVec3f(color.x, color.y, color.z);
 }
@@ -617,7 +622,7 @@ int count = 0;
 } // namespace
 
 void addManyCubes() {
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 1; i++) {
         const auto path = pxr::SdfPath(fmt::format("/cube_{}", count++));
         const auto positions = pxr::VtArray<pxr::GfVec3f>{
             pxr::GfVec3f(1.0f, 1.0f, -1.0f),   pxr::GfVec3f(1.0f, 1.0f, -1.0f),   pxr::GfVec3f(1.0f, 1.0f, -1.0f),
@@ -654,11 +659,14 @@ void addManyCubes() {
 }
 
 void removeManyCubes() {
-    for (const auto& path : paths) {
-        removeFabricPrim(path);
-    }
+    // Make sure to load yellow_green.usda first
+    auto sip = UsdUtil::getFabricStageInProgress();
 
-    paths.clear();
+    const carb::flatcache::Path fabricPrimPath("/cube_0");
+    const carb::flatcache::Path greenMaterialPath("/World/Looks/OmniPBR_Green");
+
+    const auto materialId = sip.getAttributeWr<uint64_t>(fabricPrimPath, FabricTokens::materialId);
+    *materialId = carb::flatcache::PathC(greenMaterialPath).path;
 }
 
 } // namespace cesium::omniverse::FabricUtil
