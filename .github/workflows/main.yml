@@ -105,7 +105,7 @@ jobs:
         run: cmake --build build --config ${{ matrix.config.build-type }} --parallel ${{ steps.cpu-cores.outputs.count }}
 
       - name: Tests
-        run: cd build && ctest --output-on-failure
+        run: ctest --test-dir build --output-on-failure
 
       - name: Coverage
         if: matrix.config.coverage == 'true'
@@ -149,7 +149,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         env:
           AWS_S3_USERNAME: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_S3_PASSWORD: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_S3_PASSWORD: ${{ secrets.AWS_SECRET_KEY_ID }}
         with:
           aws-access-key-id: ${{ env.AWS_S3_USERNAME }}
           aws-secret-access-key: ${{ env.AWS_S3_PASSWORD }}
