@@ -21,6 +21,7 @@ jobs:
               cc: 'cl',
               cxx: 'cl',
               build-type: 'Release',
+              build-code: 'WindowsMSVC',
               generator: 'Ninja Multi-Config',
               coverage: 'false',
             }
@@ -31,6 +32,7 @@ jobs:
               cc: 'gcc-11',
               cxx: 'g++-11',
               build-type: 'Release',
+              build-code: 'UbuntuGCC',
               generator: 'Unix Makefiles',
               coverage: 'false',
             }
@@ -157,4 +159,4 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 cp ${{ env.build_path }}/${{ env.binary_name }} s3://cesium-travis-builds/cesium-omniverse/${{ env.branch }}/${{ env.us_date }}/${{ env.sha_short }}/${{ matrix.config.name }}/
+          aws s3 cp ${{ env.build_path }}/${{ env.binary_name }} s3://cesium-travis-builds/cesium-omniverse/${{ env.branch }}/${{ env.us_date }}/${{ env.sha_short }}/${{ matrix.config.build-code }}/
