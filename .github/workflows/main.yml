@@ -131,11 +131,11 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          echo "branch=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "us_date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "build_path=build" >> $GITHUB_ENV
-          echo "binary_name=$(find . -type f -name "CesiumForOmniverse*.zip" -exec basename {} \;)" >> $GITHUB_ENV
+          echo "zip_name=$(find . -type f -name "CesiumForOmniverse*.zip" -printf "%f")" >> $GITHUB_ENV
 
       - name: Capture Git info (Windows)
         if: runner.os == 'Windows'
@@ -143,9 +143,9 @@ jobs:
         run: |
           echo "branch=${{ github.ref_name }}" >> $env:GITHUB_ENV
           echo "sha_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_ENV
-          echo "us_date=Get-Date -Format 'yyyy-MM-dd'" >> $env:GITHUB_ENV
+          echo "us_date=$(Get-Date -Format "yyyy-MM-dd")" >> $env:GITHUB_ENV
           echo "build_path=build" >> $env:GITHUB_ENV
-          echo "binary_name=Get-ChildItem -Path ${{ env.build_path }}/CesiumForOmniverse*.zip -Name" >> $env:GITHUB_ENV
+          echo "zip_name=$(Get-ChildItem -Path ${{ env.build_path }}/CesiumForOmniverse*.zip -Name)" >> $env:GITHUB_ENV
 
       - name: Capture AWS secrets
         uses: aws-actions/configure-aws-credentials@v2
@@ -159,4 +159,4 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 cp ${{ env.build_path }}/${{ env.binary_name }} s3://cesium-travis-builds/cesium-omniverse/${{ env.branch }}/${{ env.us_date }}/${{ env.sha_short }}/${{ matrix.config.build-code }}/
+          aws s3 cp ${{ env.build_path }}/${{ env.zip_name }} s3://cesium-travis-builds/cesium-omniverse/${{ env.branch }}/${{ env.us_date }}/${{ env.sha_short }}/${{ matrix.config.build-code }}/
