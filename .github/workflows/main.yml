@@ -128,7 +128,6 @@ jobs:
         run: cmake --build build --target package --config ${{ matrix.config.build-type }}
 
       - name: Capture Git info (Linux)
-        id: vars1
         if: runner.os != 'Windows'
         shell: bash
         run: |
@@ -136,16 +135,15 @@ jobs:
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "us_date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "build_path=build" >> $GITHUB_ENV
-          echo "binary_name=$(find . -type f -name "CesiumForOmniverse*.zip" -printf "%f\n")" >> $GITHUB_ENV
+          echo "binary_name=$(find . -type f -name "CesiumForOmniverse*.zip" -exec basename {} \;)" >> $GITHUB_ENV
 
       - name: Capture Git info (Windows)
-        id: vars2
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           echo "branch=${{ github.ref_name }}" >> $env:GITHUB_ENV
           echo "sha_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_ENV
-          echo "us_date=$(date +'%Y-%m-%d')" >> $env:GITHUB_ENV
+          echo "us_date=Get-Date -Format 'yyyy-MM-dd'" >> $env:GITHUB_ENV
           echo "build_path=build" >> $env:GITHUB_ENV
           echo "binary_name=Get-ChildItem -Path ${{ env.build_path }}/CesiumForOmniverse*.zip -Name" >> $env:GITHUB_ENV
 
