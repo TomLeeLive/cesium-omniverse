@@ -135,7 +135,7 @@ jobs:
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "us_date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "build_path=build" >> $GITHUB_ENV
-          echo "binary_name=$(find . -type f -name "CesiumForOmniverse*.zip" -printf "%f")" >> $GITHUB_ENV
+          echo "binary_name=$(find . -type f -name "CesiumForOmniverse*.zip" -printf "%f\n")" >> $GITHUB_ENV
 
       - name: Capture Git info (Windows)
         if: runner.os == 'Windows'
