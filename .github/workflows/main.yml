@@ -128,6 +128,7 @@ jobs:
         run: cmake --build build --target package --config ${{ matrix.config.build-type }}
 
       - name: Capture Git info (Linux)
+        id: vars1
         if: runner.os != 'Windows'
         shell: bash
         run: |
@@ -138,6 +139,7 @@ jobs:
           echo "binary_name=$(find . -type f -name "CesiumForOmniverse*.zip" -printf "%f\n")" >> $GITHUB_ENV
 
       - name: Capture Git info (Windows)
+        id: vars2
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
