@@ -134,7 +134,7 @@ jobs:
           echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           echo "us_date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-          echo -n "zip_name=$(find . -type f -name "CesiumForOmniverse*.zip" -exec basename {} \;)" >> $GITHUB_ENV
+          echo "zip_name=$(find . -type f -name "CesiumForOmniverse*.zip" -print -quit)" >> $GITHUB_ENV
 
       - name: Capture Git info (Windows)
         if: runner.os == 'Windows'
