@@ -117,32 +117,33 @@ jobs:
         run: cmake --build build --target generate-documentation --config ${{ matrix.config.build-type }}
 
       - name: Install (Default/Kit)
-        run: cmake --build build --target install --config ${{ matrix.config.build-type }}
+        run: cmake --install build --config ${{ matrix.config.build-type }}
+
+      - name: Install (Library)
+        run: cmake --install build --config ${{ matrix.config.build-type }} --prefix install-library --component library
 
       - name: Package
         run: cmake --build build --target package --config ${{ matrix.config.build-type }}
 
-      - name: Capture Git info (not Windows)
-        id: vars1
+      - name: Capture Git info (Linux)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           echo "branch=${GITHUB_REF##*/}" >> $GITHUB_ENV
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          echo "usdate=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-          echo "localPath=build" >> $GITHUB_ENV
-          echo "binaryName=Cesium-ion-3D-Tiling-Pipeline-Experimental-Linux-0.1.0.zip" >> $GITHUB_ENV
+          echo "us_date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+          echo "build_path=build" >> $GITHUB_ENV
+          echo "binary_name=$(find . -type f -name "CesiumForOmniverse*.zip" -printf "%f")" >> $GITHUB_ENV
 
       - name: Capture Git info (Windows)
-        id: vars2
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           echo "branch=${{ github.ref_name }}" >> $env:GITHUB_ENV
           echo "sha_short=$(git rev-parse --short HEAD)" >> $env:GITHUB_ENV
-          echo "usdate=$(date +'%Y-%m-%d')" >> $env:GITHUB_ENV
-          echo "localPath=build" >> $env:GITHUB_ENV
-          echo "binaryName=Cesium-ion-3D-Tiling-Pipeline-Experimental-Windows-0.1.0.zip " >> $env:GITHUB_ENV
+          echo "us_date=$(date +'%Y-%m-%d')" >> $env:GITHUB_ENV
+          echo "build_path=build" >> $env:GITHUB_ENV
+          echo "binary_name=Get-ChildItem -Path ${{ env.build_path }}/CesiumForOmniverse*.zip -Name" >> $env:GITHUB_ENV
 
       - name: Capture AWS secrets
         uses: aws-actions/configure-aws-credentials@v2
@@ -156,4 +157,4 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 cp ${{ env.localPath }}/${{ env.binaryName }} s3://cesium-travis-builds/cesium-omniverse/${{ env.branch }}/${{ env.usdate }}/${{ env.sha_short }}/${{ matrix.config.build-code }}/
+          aws s3 cp ${{ env.build_path }}/${{ env.binary_name }} s3://cesium-travis-builds/cesium-omniverse/${{ env.branch }}/${{ env.us_date }}/${{ env.sha_short }}/${{ matrix.config.name }}/
