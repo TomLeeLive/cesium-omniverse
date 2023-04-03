@@ -4,6 +4,7 @@
 #include "cesium/omniverse/DynamicTextureProviderCache.h"
 #include "cesium/omniverse/FabricAsset.h"
 #include "cesium/omniverse/FabricAttributesBuilder.h"
+#include "cesium/omniverse/FabricMeshPool.h"
 #include "cesium/omniverse/GltfUtil.h"
 #include "cesium/omniverse/LoggerSink.h"
 #include "cesium/omniverse/Tokens.h"
@@ -725,10 +726,11 @@ std::vector<pxr::SdfPath> addMaterialImagery(
     };
 }
 
-void addPrimitive(
+FabricMeshPool fabricMeshPool;
+
+pxr::SdfPath addPrimitive(
     int64_t tilesetId,
     int64_t tileId,
-    const pxr::SdfPath& geomPath,
     const glm::dmat4& ecefToUsdTransform,
     const glm::dmat4& gltfToEcefTransform,
     const glm::dmat4& nodeTransform,
@@ -739,7 +741,6 @@ void addPrimitive(
     bool smoothNormals) {
 
     auto sip = UsdUtil::getFabricStageInProgress();
-    const auto geomPathFabric = carb::flatcache::Path(carb::flatcache::asInt(geomPath));
 
     const auto positions = GltfUtil::getPrimitivePositions(model, primitive);
     const auto indices = GltfUtil::getPrimitiveIndices(model, primitive, positions);
@@ -751,7 +752,7 @@ void addPrimitive(
     const auto doubleSided = GltfUtil::getDoubleSided(model, primitive);
 
     if (positions.empty() || indices.empty() || !localExtent.has_value()) {
-        return;
+        return {};
     }
 
     int materialId = -1;
@@ -771,8 +772,6 @@ void addPrimitive(
     const auto localToUsdTransform = ecefToUsdTransform * localToEcefTransform;
     const auto [worldPosition, worldOrientation, worldScale] = UsdUtil::glmToUsdMatrixDecomposed(localToUsdTransform);
     const auto worldExtent = UsdUtil::computeWorldExtent(localExtent.value(), localToUsdTransform);
-
-    sip.createPrim(geomPathFabric);
 
     FabricAttributesBuilder attributes;
     attributes.addAttribute(FabricTypes::faceVertexCounts, FabricTokens::faceVertexCounts);
@@ -806,7 +805,10 @@ void addPrimitive(
         attributes.addAttribute(FabricTypes::primvars_normals, FabricTokens::primvars_normals);
     }
 
-    attributes.createAttributes(geomPathFabric);
+    fabricMeshPool.initialize(attributes);
+
+    const auto geomPath = fabricMeshPool.get();
+    const auto geomPathFabric = carb::flatcache::Path(carb::flatcache::asInt(geomPath));
 
     size_t primvarsCount = 0;
     size_t primvarIndexSt = 0;
@@ -898,6 +900,8 @@ void addPrimitive(
         primvarsFabric[primvarIndexNormal] = FabricTokens::primvars_normals;
         primvarInterpolationsFabric[primvarIndexNormal] = FabricTokens::vertex;
     }
+
+    return geomPath;
 }
 
 void addTexture(const std::string& assetName, const CesiumGltf::ImageCesium& image) {
@@ -1029,11 +1033,9 @@ AddTileResults addTile(
             [[maybe_unused]] const CesiumGltf::Mesh& mesh,
             const CesiumGltf::MeshPrimitive& primitive,
             const glm::dmat4& transform) {
-            auto geomPath = getGeomPath(tilesetId, tileId, primitiveId++);
-            addPrimitive(
+            auto geomPath = addPrimitive(
                 tilesetId,
                 tileId,
-                geomPath,
                 ecefToUsdTransform,
                 gltfToEcefTransform,
                 transform,
@@ -1042,7 +1044,9 @@ AddTileResults addTile(
                 materialPaths,
                 0,
                 smoothNormals);
-            geomPaths.emplace_back(std::move(geomPath));
+            if (!geomPath.IsEmpty()) {
+                geomPaths.emplace_back(std::move(geomPath));
+            }
         });
 
     allPrimPaths.insert(allPrimPaths.begin(), geomPaths.begin(), geomPaths.end());
@@ -1116,11 +1120,9 @@ AddTileResults addTileWithImagery(
             [[maybe_unused]] const CesiumGltf::Mesh& mesh,
             const CesiumGltf::MeshPrimitive& primitive,
             const glm::dmat4& transform) {
-            auto geomPath = getGeomPath(tilesetId, tileId, primitiveId++);
-            addPrimitive(
+            auto geomPath = addPrimitive(
                 tilesetId,
                 tileId,
-                geomPath,
                 ecefToUsdTransform,
                 gltfToEcefTransform,
                 transform,
@@ -1129,7 +1131,9 @@ AddTileResults addTileWithImagery(
                 materialPaths,
                 imageryUvSetIndex,
                 smoothNormals);
-            geomPaths.emplace_back(std::move(geomPath));
+            if (!geomPath.IsEmpty()) {
+                geomPaths.emplace_back(std::move(geomPath));
+            }
         });
 
     allPrimPaths.insert(allPrimPaths.begin(), geomPaths.begin(), geomPaths.end());
@@ -1140,11 +1144,10 @@ AddTileResults addTileWithImagery(
 void removeTile(const std::vector<pxr::SdfPath>& allPrimPaths, const std::vector<std::string>& textureAssetNames) {
     auto sip = UsdUtil::getFabricStageInProgress();
 
+    // TODO: this only works because we're testing without materials
     for (const auto& primPath : allPrimPaths) {
-        sip.destroyPrim(carb::flatcache::asInt(primPath));
+        fabricMeshPool.release(primPath);
     }
-
-    deletePrimsFabric(allPrimPaths);
 
     for (const auto& textureAssetName : textureAssetNames) {
         removeTexture(textureAssetName);
@@ -1176,16 +1179,10 @@ void removeTileset(int64_t tilesetId) {
 
         for (size_t i = 0; i < tilesetIdFabric.size(); i++) {
             if (tilesetIdFabric[i] == tilesetId) {
-                primsToDelete.push_back(carb::flatcache::PathC(primPaths[i]).path);
+                fabricMeshPool.release(carb::flatcache::intToPath(primPaths[i]));
             }
         }
     }
-
-    for (const auto& primToDelete : primsToDelete) {
-        sip.destroyPrim(carb::flatcache::Path(carb::flatcache::PathC{primToDelete}));
-    }
-
-    deletePrimsFabric(primsToDelete);
 }
 
 void setTilesetTransform(int64_t tilesetId, const glm::dmat4& ecefToUsdTransform) {
