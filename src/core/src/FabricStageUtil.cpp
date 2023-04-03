@@ -1119,8 +1119,6 @@ AddTileResults addTileWithImagery(
 }
 
 void removeTile(const std::vector<pxr::SdfPath>& allPrimPaths, const std::vector<std::string>& textureAssetNames) {
-    
-
     if (UsdUtil::hasStage()) {
         // Only delete prims if there's still a stage to delete them from
         auto sip = UsdUtil::getFabricStageInProgress();

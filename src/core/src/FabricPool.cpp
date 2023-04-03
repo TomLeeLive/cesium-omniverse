@@ -8,6 +8,29 @@
 
 namespace cesium::omniverse {
 
+namespace {
+void deletePrimsFabric(const std::vector<pxr::SdfPath>& primsToDelete) {
+    // Prims removed from Fabric need special handling for their removal to be reflected in the Hydra render index
+    // This workaround may not be needed in future Kit versions, but is needed as of Kit 104.2
+    auto sip = UsdUtil::getFabricStageInProgress();
+
+    const carb::flatcache::Path changeTrackingPath("/TempChangeTracking");
+
+    if (sip.getAttribute<uint64_t>(changeTrackingPath, FabricTokens::_deletedPrims) == nullptr) {
+        return;
+    }
+
+    const auto deletedPrimsSize = sip.getArrayAttributeSize(changeTrackingPath, FabricTokens::_deletedPrims);
+    sip.setArrayAttributeSize(changeTrackingPath, FabricTokens::_deletedPrims, deletedPrimsSize + primsToDelete.size());
+    auto deletedPrimsFabric = sip.getArrayAttributeWr<uint64_t>(changeTrackingPath, FabricTokens::_deletedPrims);
+
+    for (size_t i = 0; i < primsToDelete.size(); i++) {
+        deletedPrimsFabric[deletedPrimsSize + i] = carb::flatcache::asInt(primsToDelete[i]).path;
+    }
+}
+
+} // namespace
+
 FabricPrim::FabricPrim(pxr::SdfPath geomPath, const FabricAttributesBuilder& attributes)
     : _attributes(attributes) {
     // TODO: is it ok to use the same name after a stage refresh occurs?
@@ -21,22 +44,21 @@ FabricPrim::FabricPrim(pxr::SdfPath geomPath, const FabricAttributesBuilder& att
 }
 
 FabricPrim::~FabricPrim() {
-    // if (UsdUtil::hasStage()) {
-    //     // Only delete prims if there's still a stage to delete them from
-    //     auto sip = UsdUtil::getFabricStageInProgress();
+    // Only delete prims if there's still a stage to delete them from
+    if (!UsdUtil::hasStage()) {
+        return;
+    }
 
-    //     sip.destroyPrim()
+    auto sip = UsdUtil::getFabricStageInProgress();
 
-    //     for (const auto& primPath : allPrimPaths) {
-    //         sip.destroyPrim(carb::flatcache::asInt(primPath));
-    //     }
+    sip.destroyPrim(carb::flatcache::asInt(_geomPath));
 
-    //     deletePrimsFabric(allPrimPaths);
-    // }
+    for (const auto& materialPath : _materialsPaths) {
+        sip.destroyPrim(carb::flatcache::asInt(materialPath));
+    }
 
-    // for (const auto& textureAssetName : textureAssetNames) {
-    //     removeTexture(textureAssetName);
-    // }
+    deletePrimsFabric({_geomPath});
+    deletePrimsFabric(_materialsPaths);
 }
 
 void FabricPrim::setActive(bool active) {
