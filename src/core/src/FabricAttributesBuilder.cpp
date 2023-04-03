@@ -8,7 +8,7 @@ void FabricAttributesBuilder::addAttribute(const carb::flatcache::Type& type, co
     _attributes[_size++] = carb::flatcache::AttrNameAndType{type, name};
 }
 
-void FabricAttributesBuilder::createAttributes(const carb::flatcache::Path& path) {
+void FabricAttributesBuilder::createAttributes(const carb::flatcache::Path& path) const {
     // Somewhat annoyingly, stageInProgress.createAttributes takes an std::array instead of a gsl::span. This is fine if
     // you know exactly which set of attributes to create at compile time but we don't. For example, not all prims will
     // have UV coordinates or materials. This class allows attributes to be added dynamically up to a hardcoded maximum
@@ -49,4 +49,23 @@ void FabricAttributesBuilder::createAttributes(const carb::flatcache::Path& path
     else if (_size == 29) stageInProgress.createAttributes<29>(path, *reinterpret_cast<const std::array<carb::flatcache::AttrNameAndType, 29>*>(_attributes.data()));
     // clang-format on
 }
+
+bool FabricAttributesBuilder::isEqual(const FabricAttributesBuilder& a, const FabricAttributesBuilder& b) {
+    if (a._size != b._size) {
+        return false;
+    }
+
+    for (size_t i = 0; i < a._size; i++) {
+        const auto& attributeA = a._attributes[i];
+        const auto& attributeB = b._attributes[i];
+
+        // carb::flatcache::AttrNameAndType doesn't have an operator overload for !=
+        if (!(attributeA == attributeB)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace cesium::omniverse

@@ -6,6 +6,7 @@
 #include "cesium/omniverse/FabricAttributesBuilder.h"
 #include "cesium/omniverse/GltfUtil.h"
 #include "cesium/omniverse/LoggerSink.h"
+#include "cesium/omniverse/ObjectPool.h"
 #include "cesium/omniverse/Tokens.h"
 #include "cesium/omniverse/UsdUtil.h"
 
@@ -1118,6 +1119,8 @@ AddTileResults addTileWithImagery(
 }
 
 void removeTile(const std::vector<pxr::SdfPath>& allPrimPaths, const std::vector<std::string>& textureAssetNames) {
+    
+
     if (UsdUtil::hasStage()) {
         // Only delete prims if there's still a stage to delete them from
         auto sip = UsdUtil::getFabricStageInProgress();
