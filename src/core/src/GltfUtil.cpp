@@ -1,5 +1,7 @@
 #include "cesium/omniverse/GltfUtil.h"
 
+#include "cesium/omniverse/Context.h"
+
 #ifdef CESIUM_OMNI_MSVC
 #pragma push_macro("OPAQUE")
 #undef OPAQUE
@@ -83,12 +85,11 @@ pxr::VtArray<int> createIndices(
     return {};
 }
 
-pxr::VtArray<pxr::GfVec2f> getUVs(
+CesiumGltf::AccessorView<glm::fvec2> getUVsView(
     const CesiumGltf::Model& model,
     const CesiumGltf::MeshPrimitive& primitive,
     const std::string& semantic,
-    uint64_t setIndex,
-    bool flipUVs) {
+    uint64_t setIndex) {
 
     const auto uvAttribute = primitive.attributes.find(fmt::format("{}_{}", semantic, setIndex));
     if (uvAttribute == primitive.attributes.end()) {
@@ -101,6 +102,63 @@ pxr::VtArray<pxr::GfVec2f> getUVs(
     }
 
     auto uvsView = CesiumGltf::AccessorView<glm::fvec2>(model, *uvAccessor);
+
+    if (uvsView.status() != CesiumGltf::AccessorViewStatus::Valid) {
+        return {};
+    }
+
+    return uvsView;
+}
+
+CesiumGltf::AccessorView<glm::fvec3>
+getNormalsView(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive) {
+    auto normalAttribute = primitive.attributes.find("NORMAL");
+    if (normalAttribute == primitive.attributes.end()) {
+        return {};
+    }
+
+    auto normalAccessor = model.getSafe<CesiumGltf::Accessor>(&model.accessors, normalAttribute->second);
+    if (!normalAccessor) {
+        return {};
+    }
+
+    const auto normalsView = CesiumGltf::AccessorView<glm::fvec3>(model, *normalAccessor);
+
+    if (normalsView.status() != CesiumGltf::AccessorViewStatus::Valid) {
+        return {};
+    }
+
+    return normalsView;
+}
+
+CesiumGltf::AccessorView<glm::fvec3>
+getPositionsView(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive) {
+    auto positionAttribute = primitive.attributes.find("POSITION");
+    if (positionAttribute == primitive.attributes.end()) {
+        return {};
+    }
+
+    auto positionAccessor = model.getSafe<CesiumGltf::Accessor>(&model.accessors, positionAttribute->second);
+    if (!positionAccessor) {
+        return {};
+    }
+
+    auto positionsView = CesiumGltf::AccessorView<glm::fvec3>(model, *positionAccessor);
+    if (positionsView.status() != CesiumGltf::AccessorViewStatus::Valid) {
+        return {};
+    }
+
+    return positionsView;
+}
+
+pxr::VtArray<pxr::GfVec2f> getUVs(
+    const CesiumGltf::Model& model,
+    const CesiumGltf::MeshPrimitive& primitive,
+    const std::string& semantic,
+    uint64_t setIndex,
+    bool flipUVs) {
+
+    const auto uvsView = getUVsView(model, primitive, semantic, setIndex);
 
     if (uvsView.status() != CesiumGltf::AccessorViewStatus::Valid) {
         return {};
@@ -126,26 +184,17 @@ pxr::VtArray<pxr::GfVec2f> getUVs(
 
 pxr::VtArray<pxr::GfVec3f>
 getPrimitivePositions(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive) {
-    auto positionAttribute = primitive.attributes.find("POSITION");
-    if (positionAttribute == primitive.attributes.end()) {
-        return {};
-    }
+    const auto positionsView = getPositionsView(model, primitive);
 
-    auto positionAccessor = model.getSafe<CesiumGltf::Accessor>(&model.accessors, positionAttribute->second);
-    if (!positionAccessor) {
-        return {};
-    }
-
-    auto positionView = CesiumGltf::AccessorView<glm::fvec3>(model, *positionAccessor);
-    if (positionView.status() != CesiumGltf::AccessorViewStatus::Valid) {
+    if (positionsView.status() != CesiumGltf::AccessorViewStatus::Valid) {
         return {};
     }
 
     pxr::VtArray<pxr::GfVec3f> usdPositions;
-    usdPositions.reserve(static_cast<size_t>(positionView.size()));
+    usdPositions.reserve(static_cast<size_t>(positionsView.size()));
 
-    for (auto i = 0; i < positionView.size(); i++) {
-        const auto& position = positionView[i];
+    for (auto i = 0; i < positionsView.size(); i++) {
+        const auto& position = positionsView[i];
         usdPositions.push_back(pxr::GfVec3f(position.x, position.y, position.z));
     }
 
@@ -205,18 +254,17 @@ pxr::VtArray<pxr::GfVec3f> getPrimitiveNormals(
     const pxr::VtArray<pxr::GfVec3f>& positions,
     const pxr::VtArray<int>& indices,
     bool smoothNormals) {
-    auto normalAttribute = primitive.attributes.find("NORMAL");
-    if (normalAttribute != primitive.attributes.end()) {
-        const auto normalsView = CesiumGltf::AccessorView<glm::fvec3>(model, normalAttribute->second);
-        if (normalsView.status() == CesiumGltf::AccessorViewStatus::Valid) {
-            pxr::VtArray<pxr::GfVec3f> normalsUsd;
-            normalsUsd.reserve(static_cast<size_t>(normalsView.size()));
-            for (auto i = 0; i < normalsView.size(); ++i) {
-                const auto& normal = normalsView[i];
-                normalsUsd.push_back(pxr::GfVec3f(normal.x, normal.y, normal.z));
-            }
-            return normalsUsd;
+
+    const auto normalsView = getNormalsView(model, primitive);
+
+    if (normalsView.status() == CesiumGltf::AccessorViewStatus::Valid) {
+        pxr::VtArray<pxr::GfVec3f> normalsUsd;
+        normalsUsd.reserve(static_cast<size_t>(normalsView.size()));
+        for (auto i = 0; i < normalsView.size(); ++i) {
+            const auto& normal = normalsView[i];
+            normalsUsd.push_back(pxr::GfVec3f(normal.x, normal.y, normal.z));
         }
+        return normalsUsd;
     }
 
     if (smoothNormals) {
@@ -320,6 +368,33 @@ const CesiumGltf::ImageCesium& getImageCesium(const CesiumGltf::Model& model, co
     const auto imageId = static_cast<uint64_t>(texture.source);
     const auto& image = model.images[imageId];
     return image.cesium;
+}
+
+bool hasPrimitiveNormals(
+    const CesiumGltf::Model& model,
+    const CesiumGltf::MeshPrimitive& primitive,
+    bool smoothNormals) {
+    return smoothNormals || getNormalsView(model, primitive).status() == CesiumGltf::AccessorViewStatus::Valid;
+}
+
+bool hasPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive, uint64_t setIndex) {
+    return getUVsView(model, primitive, "TEXCOORD", setIndex).status() == CesiumGltf::AccessorViewStatus::Valid;
+}
+
+bool hasImageryUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive, uint64_t setIndex) {
+    return getUVsView(model, primitive, "_CESIUMOVERLAY", setIndex).status() == CesiumGltf::AccessorViewStatus::Valid;
+}
+
+bool hasMaterial(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive) {
+    int materialId = -1;
+
+    const auto disableMaterials = Context::instance().getDebugDisableMaterials();
+
+    if (!disableMaterials && primitive.material >= 0) {
+        materialId = primitive.material;
+    }
+
+    return materialId != -1;
 }
 
 } // namespace cesium::omniverse::GltfUtil

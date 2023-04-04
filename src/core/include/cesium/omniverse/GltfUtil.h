@@ -50,4 +50,15 @@ getImageryUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& p
 
 const CesiumGltf::ImageCesium& getImageCesium(const CesiumGltf::Model& model, const CesiumGltf::Texture& texture);
 
+bool hasPrimitiveNormals(
+    const CesiumGltf::Model& model,
+    const CesiumGltf::MeshPrimitive& primitive,
+    bool smoothNormals);
+
+bool hasPrimitiveUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive);
+
+bool hasImageryUVs(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive);
+
+bool hasMaterial(const CesiumGltf::Model& model, const CesiumGltf::MeshPrimitive& primitive);
+
 } // namespace cesium::omniverse::GltfUtil
